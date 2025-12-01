@@ -27,7 +27,9 @@ try
     // Добавление сервисов
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddOpenApi();
+    
+    // Настройка Swagger/OpenAPI
+    builder.Services.AddSwaggerGen();
 
     // Регистрация слоев приложения
     builder.Services.AddApplication();
@@ -64,7 +66,13 @@ try
     // Настройка HTTP pipeline
     if (app.Environment.IsDevelopment())
     {
-        app.MapOpenApi();
+        app.UseSwagger();
+        app.UseSwaggerUI(options =>
+        {
+            options.SwaggerEndpoint("/swagger/v1/swagger.json", "MedicationAssist API v1.0");
+            options.RoutePrefix = "swagger"; // URL: /swagger
+            options.DocumentTitle = "MedicationAssist API Documentation";
+        });
     }
 
     app.UseSerilogRequestLogging();

@@ -8,6 +8,7 @@ MedicationAssist - это REST API приложение, разработанн�
 
 - **.NET 9.0** - последняя версия платформы .NET
 - **PostgreSQL** - надежная реляционная база данных
+- **Swagger/OpenAPI** - интерактивная документация API
 - **DDD (Domain-Driven Design)** - архитектурный подход
 - **Rich Domain Model** - богатая доменная модель с бизнес-логикой
 - **Entity Framework Core** - ORM для работы с базой данных
@@ -61,49 +62,66 @@ MedicationAssist/
 - [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (для запуска в контейнерах)
 - PostgreSQL 17+ (если запуск без Docker)
-
 ## Быстрый старт с Docker
-
+## Варианты запуска
 1. Клонируйте репозиторий:
 ```bash
 git clone <repository-url>
 cd MedicationAssist
 ```
-
+### Вариант 1: Полный запуск в Docker (Рекомендуется для продакшена)
 2. Запустите приложение с помощью Docker Compose:
 ```bash
-docker-compose up --build
-```
-
+# Запуск
+# Остановка
+docker-compose -f docker-compose.db.yml down
 3. API будет доступен по адресу: `http://localhost:5000`
-
+dotnet ef database update --project ../MedicationAssist.Infrastructure
 4. PostgreSQL будет доступен на порту `5432`
-
+# Из командной строки
 ## Запуск без Docker
-
+# Или просто нажмите F5 в Rider/Visual Studio
 1. Установите и настройте PostgreSQL
 
 2. Обновите строку подключения в `appsettings.json`:
+```
+
+3. Обновите строку подключения в `appsettings.json`:
 ```json
 {
   "ConnectionStrings": {
     "DefaultConnection": "Host=localhost;Port=5432;Database=medicationassist;Username=postgres;Password=your_password"
   }
-}
-```
-
 3. Примените миграции базы данных:
 ```bash
-cd MedicationAssist.API
-dotnet ef database update --project ../MedicationAssist.Infrastructure
-```
 
+4. Примените миграции:
+```powershell
+cd MedicationAssist.API
 4. Запустите приложение:
 ```bash
+
+5. Запустите приложение:
+```powershell
 dotnet run --project MedicationAssist.API
 ```
+# Посмотреть логи контейнера
+docker logs medicationassist-postgres-dev -f
 
-## API Endpoints
+# Перезапустить контейнер
+docker restart medicationassist-postgres-dev
+
+# Остановить и удалить контейнер с данными
+docker-compose -f docker-compose.db.yml down -v
+```
+
+**Подключение к БД через клиенты:**
+- **DBeaver / DataGrip / pgAdmin:**
+  - Host: `localhost`
+  - Port: `5432`
+  - Database: `medicationassist`
+  - User: `postgres`
+  - Password: `postgres`
 
 ### Users (Пользователи)
 
