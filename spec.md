@@ -6,8 +6,8 @@
 **MedicationAssist** - Информационная система контроля приема лекарственных препаратов
 
 ### 1.2 Версия документа
-**Версия:** 1.2  
-**Дата:** 02 декабря 2025  
+**Версия:** 1.3  
+**Дата:** 06 декабря 2025  
 **Статус:** Утверждено
 
 ### 1.3 Цель проекта
@@ -816,8 +816,7 @@ MedicationIntake
 - PostgreSQL 17
 
 **API Документация:**
-- Swashbuckle.AspNetCore 10.0.1
-- Microsoft.OpenApi 3.0.1
+- Swashbuckle.AspNetCore 6.9.0
 
 **Безопасность:**
 - Microsoft.AspNetCore.Authentication.JwtBearer 9.0.0
@@ -2141,8 +2140,9 @@ Passed!  - Failed: 0, Passed: 46, Skipped: 0, Total: 46
 
 | Версия | Дата | Автор | Изменения |
 |--------|------|-------|-----------|
+| 1.3 | 06.12.2024 | Команда разработки | Добавлена поддержка JWT авторизации в Swagger UI:<br>- Кнопка "Authorize" для ввода Bearer токена<br>- SecurityDefinition и SecurityRequirement для OpenAPI<br>- Понижена версия Swashbuckle.AspNetCore до 6.9.0 для совместимости |
 | 1.2 | 02.12.2024 | Команда разработки | Реализована система аутентификации и авторизации:<br>- JWT токены (Microsoft.AspNetCore.Authentication.JwtBearer 9.0.0)<br>- Хэширование паролей (BCrypt.Net-Next 4.0.3)<br>- Роли пользователей (User, Admin)<br>- AuthController (/api/auth/register, /api/auth/login)<br>- Rate Limiting (100 req/min)<br>- Защита всех контроллеров через [Authorize]<br>- Миграция AddUserAuthentication (PasswordHash, Role)<br>- Обновлена модель User и UserDto |
-| 1.1 | 01.12.2024 | Команда разработки | Добавлен Swagger UI (Swashbuckle.AspNetCore 10.0.1) |
+| 1.1 | 01.12.2024 | Команда разработки | Добавлен Swagger UI (Swashbuckle.AspNetCore 6.9.0) |
 | 1.0 | 01.12.2024 | Команда разработки | Первая версия спецификации |
 
 ---
