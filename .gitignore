@@ -107,3 +107,8 @@ logs/
 # Docker
 docker-compose.override.yml
 
+# Environment
+.env
+.env.local
+.env.*.local
+
