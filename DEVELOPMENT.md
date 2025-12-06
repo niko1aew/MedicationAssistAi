@@ -17,31 +17,55 @@ git clone <repository-url>
 cd AiMedicationAssist
 ```
 
-2. **Запустите базу данных в Docker:**
+2. **Создайте файл `.env` из примера:**
+```powershell
+cp .env.example .env
+```
+
+3. **Настройте переменные окружения** в `.env` (при необходимости):
+```env
+# Database
+POSTGRES_DB=medicationassist
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_PORT=5432
+
+# API
+API_PORT=5000
+ASPNETCORE_HTTP_PORTS=8080
+
+# JWT
+JWT_SECRET=YourSuperSecretKeyThatIsAtLeast32CharactersLongForHS256Algorithm!
+JWT_ISSUER=MedicationAssist.API
+JWT_AUDIENCE=MedicationAssist.Client
+JWT_EXPIRATION_MINUTES=60
+```
+
+4. **Запустите базу данных в Docker:**
 ```powershell
 docker-compose -f docker-compose.db.yml up -d
 ```
 
-3. **Дождитесь готовности БД (проверка healthcheck):**
+5. **Дождитесь готовности БД (проверка healthcheck):**
 ```powershell
 docker-compose -f docker-compose.db.yml ps
 # Статус должен быть "healthy"
 ```
 
-4. **Примените миграции:**
+6. **Примените миграции:**
 ```powershell
 cd MedicationAssist.API
 dotnet ef database update --project ../MedicationAssist.Infrastructure
 ```
 
-5. **Запустите API:**
+7. **Запустите API:**
    - В Rider: нажмите F5 или кнопку Run
    - Или из командной строки:
      ```powershell
      dotnet run --project MedicationAssist.API
      ```
 
-6. **Проверьте работу API:**
+8. **Проверьте работу API:**
    - **Swagger UI (Рекомендуется):** `http://localhost:5000/swagger`
    - Откройте браузер: `http://localhost:5000/api/users`
    - Или используйте файл `MedicationAssist.API/MedicationAssist.API.http`
@@ -69,6 +93,36 @@ Swagger UI - это интерактивная документация API, д�
 
 **Примечание:** Swagger UI доступен только в Development окружении.
 
+## Переменные окружения
+
+Все секреты и настройки вынесены в файл `.env`. Файл `.env.example` содержит шаблон с безопасными значениями.
+
+### Структура `.env`
+
+```env
+# Database
+POSTGRES_DB=medicationassist        # Имя базы данных
+POSTGRES_USER=postgres              # Пользователь БД
+POSTGRES_PASSWORD=postgres          # Пароль БД
+POSTGRES_PORT=5432                  # Порт PostgreSQL
+
+# API
+API_PORT=5000                       # Внешний порт API
+ASPNETCORE_HTTP_PORTS=8080          # Внутренний порт контейнера
+
+# JWT
+JWT_SECRET=...                      # Секретный ключ (мин. 32 символа)
+JWT_ISSUER=MedicationAssist.API     # Издатель токенов
+JWT_AUDIENCE=MedicationAssist.Client # Аудитория токенов
+JWT_EXPIRATION_MINUTES=60           # Время жизни токена
+```
+
+### Использование
+
+- **Docker Compose** автоматически подтягивает переменные из `.env`
+- **Локальная разработка без Docker** использует значения из `appsettings.json`
+- Файл `.env` добавлен в `.gitignore` — не коммитится в репозиторий
+
 ## Ежедневный workflow
 
 ### Запуск окружения
@@ -95,16 +149,16 @@ docker-compose -f docker-compose.db.yml down -v
 
 ### Подключение к БД
 
-**Параметры подключения:**
+**Параметры подключения** (настраиваются в `.env`):
 - **Host:** localhost
-- **Port:** 5432
-- **Database:** medicationassist
-- **Username:** postgres
-- **Password:** postgres
+- **Port:** `${POSTGRES_PORT}` (по умолчанию 5432)
+- **Database:** `${POSTGRES_DB}` (по умолчанию medicationassist)
+- **Username:** `${POSTGRES_USER}` (по умолчанию postgres)
+- **Password:** `${POSTGRES_PASSWORD}` (по умолчанию postgres)
 
 **Строка подключения:**
 ```
-Host=localhost;Port=5432;Database=medicationassist;Username=postgres;Password=postgres
+Host=localhost;Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
 ```
 
 ### Работа с миграциями
@@ -396,9 +450,8 @@ netstat -ano | findstr :5432
 # Остановить другой PostgreSQL
 Stop-Service postgresql-x64-17
 
-# Или изменить порт в docker-compose.db.yml
-ports:
-  - "5433:5432"  # Внешний порт 5433
+# Или изменить порт в .env
+POSTGRES_PORT=5433
 ```
 
 ### Ошибка подключения к БД

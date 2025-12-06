@@ -76,6 +76,31 @@ MedicationAssist/
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (для запуска в контейнерах)
 - PostgreSQL 17+ (если запуск без Docker)
 
+## ⚙️ Конфигурация
+
+Все секреты и порты вынесены в файл `.env`. Создайте его из шаблона:
+
+```bash
+cp .env.example .env
+```
+
+### Переменные окружения
+
+| Переменная | Описание | По умолчанию |
+|------------|----------|--------------|
+| `POSTGRES_DB` | Имя базы данных | `medicationassist` |
+| `POSTGRES_USER` | Пользователь БД | `postgres` |
+| `POSTGRES_PASSWORD` | Пароль БД | `postgres` |
+| `POSTGRES_PORT` | Порт PostgreSQL | `5432` |
+| `API_PORT` | Внешний порт API | `5000` |
+| `ASPNETCORE_HTTP_PORTS` | Внутренний порт контейнера | `8080` |
+| `JWT_SECRET` | Секретный ключ JWT (мин. 32 символа) | — |
+| `JWT_ISSUER` | Издатель токенов | `MedicationAssist.API` |
+| `JWT_AUDIENCE` | Аудитория токенов | `MedicationAssist.Client` |
+| `JWT_EXPIRATION_MINUTES` | Время жизни токена (минуты) | `60` |
+
+> ⚠️ **Важно:** Файл `.env` добавлен в `.gitignore` и не должен коммититься в репозиторий.
+
 ## 🚀 Быстрый старт
 
 ### Вариант 1: Docker (Рекомендуется)
@@ -86,12 +111,36 @@ git clone <repository-url>
 cd MedicationAssist
 ```
 
-2. **Запустите приложение с помощью Docker Compose:**
+2. **Создайте файл `.env` из примера:**
+```bash
+cp .env.example .env
+```
+
+3. **Настройте переменные окружения** в `.env` (при необходимости):
+```env
+# Database
+POSTGRES_DB=medicationassist
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_PORT=5432
+
+# API
+API_PORT=5000
+ASPNETCORE_HTTP_PORTS=8080
+
+# JWT
+JWT_SECRET=YourSuperSecretKeyThatIsAtLeast32CharactersLong!
+JWT_ISSUER=MedicationAssist.API
+JWT_AUDIENCE=MedicationAssist.Client
+JWT_EXPIRATION_MINUTES=60
+```
+
+4. **Запустите приложение с помощью Docker Compose:**
 ```bash
 docker-compose up --build
 ```
 
-3. **Доступ к приложению:**
+5. **Доступ к приложению:**
    - API: `http://localhost:5000`
    - Swagger UI: `http://localhost:5000/swagger`
    - PostgreSQL: `localhost:5432`
@@ -100,23 +149,16 @@ docker-compose up --build
 
 1. **Установите и запустите PostgreSQL**
 
-2. **Обновите строку подключения** в `appsettings.json`:
+2. **Создайте файл `.env`** из примера и настройте подключение:
+```bash
+cp .env.example .env
+```
+
+3. **Или обновите строку подключения** в `appsettings.json`:
 ```json
 {
   "ConnectionStrings": {
     "DefaultConnection": "Host=localhost;Port=5432;Database=medicationassist;Username=postgres;Password=your_password"
-  }
-}
-```
-
-3. **Настройте JWT секреты** в `appsettings.json`:
-```json
-{
-  "JwtSettings": {
-    "Key": "YourSuperSecretKeyThatIsAtLeast32CharactersLong",
-    "Issuer": "MedicationAssist",
-    "Audience": "MedicationAssistUsers",
-    "ExpiresInMinutes": 60
   }
 }
 ```
@@ -305,7 +347,8 @@ dotnet test /p:CollectCoverage=true
 
 ### Рекомендации для Production:
 - Используйте HTTPS (TLS 1.3+)
-- Храните JWT секреты в безопасном хранилище (Azure Key Vault, AWS Secrets Manager)
+- Храните секреты в безопасном хранилище (Azure Key Vault, AWS Secrets Manager)
+- **Никогда не коммитьте `.env` файл** — используйте `.env.example` как шаблон
 - Настройте CORS политику под ваш домен
 - Включите дополнительные меры защиты (2FA, Password Reset)
 
