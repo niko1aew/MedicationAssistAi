@@ -4,7 +4,6 @@ using MedicationAssist.Application;
 using MedicationAssist.Infrastructure;
 using MedicationAssist.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -34,8 +33,42 @@ try
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
     
-    // Настройка Swagger/OpenAPI
-    builder.Services.AddSwaggerGen();
+    // Настройка Swagger/OpenAPI с JWT авторизацией
+    builder.Services.AddSwaggerGen(options =>
+    {
+        options.SwaggerDoc("v1", new OpenApiInfo
+        {
+            Title = "MedicationAssist API",
+            Version = "v1",
+            Description = "API для управления лекарствами и расписанием приёма"
+        });
+
+        // Настройка JWT Bearer авторизации
+        options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = SecuritySchemeType.Http,
+            Scheme = "Bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description = "Введите JWT токен.\n\nПример: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        });
+
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty<string>()
+            }
+        });
+    });
 
     // Настройка JWT Authentication
     var jwtSecret = builder.Configuration["JwtSettings:Secret"] 
