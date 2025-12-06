@@ -12,6 +12,8 @@ public class User : Entity
 
     public string Name { get; private set; }
     public string Email { get; private set; }
+    public string PasswordHash { get; private set; }
+    public UserRole Role { get; private set; }
 
     public IReadOnlyCollection<Medication> Medications => _medications.AsReadOnly();
     public IReadOnlyCollection<MedicationIntake> MedicationIntakes => _medicationIntakes.AsReadOnly();
@@ -20,12 +22,16 @@ public class User : Entity
     {
         Name = string.Empty;
         Email = string.Empty;
+        PasswordHash = string.Empty;
+        Role = UserRole.User;
     }
 
-    public User(string name, string email) : base()
+    public User(string name, string email, string passwordHash, UserRole role = UserRole.User) : base()
     {
         SetName(name);
         SetEmail(email);
+        SetPasswordHash(passwordHash);
+        Role = role;
     }
 
     public void SetName(string name)
@@ -52,6 +58,21 @@ public class User : Entity
             throw new DomainException("Email не может превышать 200 символов");
 
         Email = email;
+        MarkAsUpdated();
+    }
+
+    public void SetPasswordHash(string passwordHash)
+    {
+        if (string.IsNullOrWhiteSpace(passwordHash))
+            throw new DomainException("Хэш пароля не может быть пустым");
+
+        PasswordHash = passwordHash;
+        MarkAsUpdated();
+    }
+
+    public void SetRole(UserRole role)
+    {
+        Role = role;
         MarkAsUpdated();
     }
 

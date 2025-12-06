@@ -6,8 +6,8 @@
 **MedicationAssist** - Информационная система контроля приема лекарственных препаратов
 
 ### 1.2 Версия документа
-**Версия:** 1.1  
-**Дата:** 01 декабря 2025  
+**Версия:** 1.2  
+**Дата:** 02 декабря 2025  
 **Статус:** Утверждено
 
 ### 1.3 Цель проекта
@@ -20,17 +20,115 @@
 - Пользователи, принимающие несколько препаратов одновременно
 
 ### 1.5 Ключевые возможности системы
-1. Управление персональным списком лекарственных препаратов
-2. Регистрация факта приема лекарств с автоматической фиксацией времени
-3. Просмотр истории приемов с возможностью фильтрации
-4. Валидация данных на всех уровнях системы
-5. Многопользовательский режим работы
+1. **Безопасная аутентификация** с использованием JWT токенов
+2. **Управление персональным списком** лекарственных препаратов
+3. **Регистрация факта приема** лекарств с автоматической фиксацией времени
+4. **Просмотр истории приемов** с возможностью фильтрации
+5. **Валидация данных** на всех уровнях системы
+6. **Многопользовательский режим** работы с защитой данных
+7. **Защита от перегрузки** через Rate Limiting
 
 ---
 
 ## 2. Функциональные требования
 
-### 2.1 Управление пользователями
+### 2.1 Аутентификация и авторизация
+
+#### FR-AUTH-001: Регистрация пользователя
+**Описание:** Система должна позволять регистрацию новых пользователей с безопасным хэшированием паролей.
+
+**Эндпоинт:** `POST /api/auth/register`
+
+**Предусловия:** Нет
+
+**Входные данные:**
+```json
+{
+  "name": "string (required, max 200)",
+  "email": "string (required, max 200)",
+  "password": "string (required, min 6, max 100)"
+}
+```
+
+**Основной сценарий:**
+1. Клиент отправляет POST запрос с данными регистрации
+2. Система проверяет уникальность email
+3. Система валидирует пароль (минимум 6 символов)
+4. Система хэширует пароль с использованием BCrypt
+5. Система создает пользователя с ролью User
+6. Система генерирует JWT токен
+7. Система возвращает токен и данные пользователя (код 201)
+
+**Альтернативные сценарии:**
+- Email уже используется → ошибка 400 "Пользователь с таким email уже существует"
+- Пароль менее 6 символов → ошибка 400 "Пароль должен содержать минимум 6 символов"
+- Невалидные данные → ошибка 400 с описанием
+
+**Возвращаемые данные:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "guid",
+    "name": "string",
+    "email": "string",
+    "role": "User",
+    "createdAt": "datetime",
+    "updatedAt": null
+  }
+}
+```
+
+#### FR-AUTH-002: Вход в систему
+**Описание:** Система должна позволять аутентификацию пользователей и выдачу JWT токенов.
+
+**Эндпоинт:** `POST /api/auth/login`
+
+**Предусловия:** Пользователь зарегистрирован
+
+**Входные данные:**
+```json
+{
+  "email": "string (required)",
+  "password": "string (required)"
+}
+```
+
+**Основной сценарий:**
+1. Клиент отправляет POST запрос с email и паролем
+2. Система находит пользователя по email
+3. Система проверяет пароль через BCrypt
+4. Система генерирует JWT токен с Claims (ID, Email, Name, Role)
+5. Система возвращает токен и данные пользователя (код 200)
+
+**Альтернативные сценарии:**
+- Пользователь не найден → ошибка 400 "Неверный email или пароль"
+- Неверный пароль → ошибка 400 "Неверный email или пароль"
+
+**Возвращаемые данные:** объект AuthResponseDto (как в FR-AUTH-001)
+
+#### FR-AUTH-003: Защита эндпоинтов
+**Описание:** Все эндпоинты управления данными требуют JWT токен в заголовке Authorization.
+
+**Формат заголовка:**
+```
+Authorization: Bearer {jwt_token}
+```
+
+**Защищенные контроллеры:**
+- `UsersController` - все эндпоинты
+- `MedicationsController` - все эндпоинты
+- `MedicationIntakesController` - все эндпоинты
+
+**Ответ при отсутствии токена:**
+- Код 401 Unauthorized
+
+**Ответ при невалидном токене:**
+- Код 401 Unauthorized
+
+---
+
+### 2.2 Управление пользователями
 
 #### FR-USER-001: Создание пользователя
 **Описание:** Система должна позволять создавать нового пользователя с указанием имени и email.
@@ -50,7 +148,9 @@
 - Email уже используется → ошибка 400 "Пользователь с таким email уже существует"
 - Невалидные данные → ошибка 400 с описанием проблемы
 
-**Постусловия:** Пользователь создан в системе
+**Постусловия:** Пользователь создан в системе (УСТАРЕЛО: используйте `/api/auth/register`)
+
+**Примечание:** Данный эндпоинт устарел. Для создания пользователя используйте `/api/auth/register`, который обеспечивает безопасную регистрацию с хэшированием пароля.
 
 #### FR-USER-002: Получение информации о пользователе
 **Описание:** Система должна позволять получить информацию о пользователе по ID или email.
@@ -75,6 +175,7 @@
   "id": "guid",
   "name": "string",
   "email": "string",
+  "role": "User",
   "createdAt": "datetime",
   "updatedAt": "datetime?"
 }
@@ -134,7 +235,7 @@
 
 ---
 
-### 2.2 Управление лекарствами
+### 2.3 Управление лекарствами
 
 #### FR-MED-001: Создание лекарства
 **Описание:** Система должна позволять пользователю добавлять лекарство в свой список.
@@ -268,7 +369,7 @@
 
 ---
 
-### 2.3 Управление приемами лекарств
+### 2.4 Управление приемами лекарств
 
 #### FR-INTAKE-001: Регистрация приема лекарства
 **Описание:** Система должна позволять регистрировать факт приема лекарства.
@@ -454,18 +555,24 @@ GET /api/users/{userId}/intakes?fromDate=2024-12-01&medicationId={guid}
 ### 3.3 Безопасность
 
 **NFR-SEC-001:** Защита данных
-- Хранение паролей в зашифрованном виде (планируется)
-- HTTPS для всех соединений
-- Валидация всех входных данных
+- ✅ Хранение паролей в зашифрованном виде (BCrypt)
+- ✅ Валидация всех входных данных
+- HTTPS для всех соединений (рекомендуется для Production)
 
-**NFR-SEC-002:** Аутентификация и авторизация (планируется)
-- JWT токены для аутентификации
-- Проверка принадлежности данных пользователю
-- Защита от CSRF атак
+**NFR-SEC-002:** Аутентификация и авторизация
+- ✅ JWT токены для аутентификации (HS256)
+- ✅ Проверка принадлежности данных пользователю
+- ✅ Защита всех эндпоинтов через [Authorize]
+- ✅ Роли пользователей (User, Admin)
+- Защита от CSRF атак (планируется)
 
 **NFR-SEC-003:** Аудит
-- Логирование всех операций изменения данных
-- Сохранение IP-адресов и временных меток действий
+- ✅ Логирование всех операций изменения данных
+- ✅ Сохранение временных меток действий
+- Сохранение IP-адресов запросов (планируется)
+
+**NFR-SEC-004:** Защита от перегрузки
+- ✅ Rate Limiting (100 запросов/минуту с очередью до 5)
 
 ### 3.4 Удобство использования
 
@@ -573,6 +680,8 @@ User
 ├── Id: Guid
 ├── Name: string
 ├── Email: string
+├── PasswordHash: string
+├── Role: UserRole (enum: User, Admin)
 ├── CreatedAt: DateTime
 ├── UpdatedAt: DateTime?
 ├── Medications: IReadOnlyCollection<Medication>
@@ -583,7 +692,9 @@ User
     ├── RecordMedicationIntake(medicationId, intakeTime?, notes?)
     ├── RemoveMedicationIntake(intakeId)
     ├── SetName(name)
-    └── SetEmail(email)
+    ├── SetEmail(email)
+    ├── SetPasswordHash(passwordHash)
+    └── SetRole(role)
 
 Medication
 ├── Id: Guid
@@ -628,10 +739,13 @@ MedicationIntake
 - `UserService` - управление пользователями
 - `MedicationService` - управление лекарствами
 - `MedicationIntakeService` - управление приемами
+- `AuthService` - аутентификация и регистрация
+- `IPasswordHasher` - интерфейс хэширования паролей
+- `IJwtTokenService` - интерфейс генерации JWT токенов
 
 **DTOs (Data Transfer Objects):**
-- Request DTOs: `CreateUserDto`, `UpdateUserDto`, etc.
-- Response DTOs: `UserDto`, `MedicationDto`, `MedicationIntakeDto`
+- Request DTOs: `CreateUserDto`, `UpdateUserDto`, `RegisterDto`, `LoginDto`
+- Response DTOs: `UserDto`, `MedicationDto`, `MedicationIntakeDto`, `AuthResponseDto`
 - Filter DTOs: `MedicationIntakeFilterDto`
 
 **Common:**
@@ -652,15 +766,23 @@ MedicationIntake
 - `MedicationConfiguration` - конфигурация сущности Medication
 - `MedicationIntakeConfiguration` - конфигурация сущности MedicationIntake
 
+**Security:**
+- `PasswordHasher` - реализация хэширования паролей (BCrypt)
+- `JwtTokenService` - реализация генерации JWT токенов
+- `JwtSettings` - конфигурация JWT
+
 **Migrations:**
 - EF Core миграции для версионирования схемы БД
+- `InitialCreate` - начальная структура БД
+- `AddUserAuthentication` - добавление полей PasswordHash и Role
 
 #### 4.4.4 API Layer
 
 **Controllers:**
-- `UsersController` - эндпоинты управления пользователями
-- `MedicationsController` - эндпоинты управления лекарствами
-- `MedicationIntakesController` - эндпоинты управления приемами
+- `AuthController` - эндпоинты аутентификации (register, login)
+- `UsersController` - эндпоинты управления пользователями (защищено [Authorize])
+- `MedicationsController` - эндпоинты управления лекарствами (защищено [Authorize])
+- `MedicationIntakesController` - эндпоинты управления приемами (защищено [Authorize])
 
 **Configuration:**
 - `Program.cs` - точка входа и конфигурация приложения
@@ -678,6 +800,9 @@ MedicationIntake
 5. **Rich Domain Model** - бизнес-логика в сущностях
 6. **DTO Pattern** - разделение внутренней и внешней моделей данных
 7. **Factory Pattern** - создание сложных объектов (косвенно через конструкторы)
+8. **Strategy Pattern** - различные стратегии хэширования (IPasswordHasher)
+9. **Service Layer Pattern** - бизнес-логика в сервисах (AuthService, UserService)
+10. **Options Pattern** - конфигурация через IOptions<T> (JwtSettings)
 
 ### 4.6 Технологический стек
 
@@ -692,8 +817,13 @@ MedicationIntake
 
 **API Документация:**
 - Swashbuckle.AspNetCore 10.0.1
-- Microsoft.AspNetCore.OpenApi 9.0.2
-- Microsoft.OpenApi 2.3.0 (транзитивная зависимость Swashbuckle)
+- Microsoft.OpenApi 3.0.1
+
+**Безопасность:**
+- Microsoft.AspNetCore.Authentication.JwtBearer 9.0.0
+- System.IdentityModel.Tokens.Jwt 8.15.0
+- BCrypt.Net-Next 4.0.3
+- Microsoft.IdentityModel.Tokens 8.15.0
 
 **Логирование:**
 - Serilog 9.0.0
@@ -740,6 +870,8 @@ CREATE TABLE "Users" (
     "Id" UUID PRIMARY KEY,
     "Name" VARCHAR(200) NOT NULL,
     "Email" VARCHAR(200) NOT NULL UNIQUE,
+    "PasswordHash" VARCHAR(500) NOT NULL,
+    "Role" VARCHAR(50) NOT NULL,
     "CreatedAt" TIMESTAMP NOT NULL,
     "UpdatedAt" TIMESTAMP NULL
 );
@@ -750,7 +882,8 @@ CREATE UNIQUE INDEX "IX_Users_Email" ON "Users" ("Email");
 **Ограничения:**
 - PK: Id
 - UNIQUE: Email
-- NOT NULL: Id, Name, Email, CreatedAt
+- NOT NULL: Id, Name, Email, PasswordHash, Role, CreatedAt
+- DEFAULT: Role = 'User'
 
 #### Таблица: Medications
 
@@ -827,7 +960,7 @@ CREATE INDEX "IX_MedicationIntakes_MedicationId"
 
 **Обязательность:**
 - Все ID обязательны
-- Name и Email у User обязательны
+- Name, Email, PasswordHash и Role у User обязательны
 - Name у Medication обязательно
 - IntakeTime у MedicationIntake обязательно
 
@@ -844,6 +977,7 @@ CREATE INDEX "IX_MedicationIntakes_MedicationId"
 **Возможности Swagger UI:**
 - Интерактивная документация всех API эндпоинтов
 - Тестирование API запросов прямо из браузера
+- ✅ **JWT аутентификация** - кнопка "Authorize" для ввода Bearer токена
 - Просмотр моделей данных (DTO)
 - Описание параметров запросов и ответов
 - Примеры JSON для Request/Response
@@ -852,6 +986,15 @@ CREATE INDEX "IX_MedicationIntakes_MedicationId"
 - **Title:** MedicationAssist API
 - **Version:** v1.0
 - **Description:** API для управления приемом лекарственных препаратов
+- **Security:** JWT Bearer Authentication
+
+**Как использовать аутентификацию в Swagger:**
+1. Зарегистрируйтесь через POST `/api/auth/register`
+2. Скопируйте полученный `token` из ответа
+3. Нажмите кнопку **"Authorize"** в правом верхнем углу Swagger UI
+4. Введите `Bearer {ваш_токен}` в поле Value
+5. Нажмите "Authorize" и "Close"
+6. Теперь все запросы будут отправляться с JWT токеном
 
 **Примечание:** Swagger UI доступен только в Development окружении для безопасности. Для Production рекомендуется использовать отдельную документацию или защищенный Swagger с аутентификацией.
 
@@ -885,7 +1028,99 @@ CREATE INDEX "IX_MedicationIntakes_MedicationId"
 }
 ```
 
-### 6.3 Эндпоинты Users
+**Аутентификация:**
+Все эндпоинты (кроме `/api/auth/*`) требуют JWT токен в заголовке:
+```
+Authorization: Bearer {your_jwt_token}
+```
+
+### 6.3 Эндпоинты Authentication
+
+#### POST /api/auth/register
+Регистрация нового пользователя.
+
+**Request Body:**
+```json
+{
+  "name": "Иван Иванов",
+  "email": "ivan@example.com",
+  "password": "securepassword123"
+}
+```
+
+**Валидация:**
+- `name`: обязательное, макс 200 символов
+- `email`: обязательное, корректный формат, макс 200 символов
+- `password`: обязательное, минимум 6 символов, макс 100 символов
+
+**Response 201:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+  "user": {
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "name": "Иван Иванов",
+    "email": "ivan@example.com",
+    "role": "User",
+    "createdAt": "2024-12-02T10:00:00Z",
+    "updatedAt": null
+  }
+}
+```
+
+**Response 400:**
+```json
+{
+  "error": "Пользователь с таким email уже существует"
+}
+```
+
+#### POST /api/auth/login
+Вход в систему.
+
+**Request Body:**
+```json
+{
+  "email": "ivan@example.com",
+  "password": "securepassword123"
+}
+```
+
+**Response 200:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "name": "Иван Иванов",
+    "email": "ivan@example.com",
+    "role": "User",
+    "createdAt": "2024-12-02T10:00:00Z",
+    "updatedAt": null
+  }
+}
+```
+
+**Response 400:**
+```json
+{
+  "error": "Неверный email или пароль"
+}
+```
+
+**Детали JWT токена:**
+- **Алгоритм:** HS256 (HMAC SHA256)
+- **Время жизни:** 60 минут (Production), 1440 минут (Development)
+- **Claims:**
+  - `sub` - ID пользователя
+  - `email` - Email пользователя
+  - `name` - Имя пользователя
+  - `role` - Роль пользователя (User/Admin)
+  - `jti` - уникальный идентификатор токена
+
+### 6.4 Эндпоинты Users
+
+**⚠️ Требуется аутентификация:** Все эндпоинты требуют JWT токен в заголовке Authorization.
 
 #### GET /api/users
 Получить список всех пользователей.
@@ -897,6 +1132,7 @@ CREATE INDEX "IX_MedicationIntakes_MedicationId"
     "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "name": "Иван Иванов",
     "email": "ivan@example.com",
+    "role": "User",
     "createdAt": "2024-12-01T10:00:00Z",
     "updatedAt": null
   }
@@ -976,7 +1212,9 @@ CREATE INDEX "IX_MedicationIntakes_MedicationId"
 
 **Response 404:** объект с ошибкой
 
-### 6.4 Эндпоинты Medications
+### 6.5 Эндпоинты Medications
+
+**⚠️ Требуется аутентификация:** Все эндпоинты требуют JWT токен в заголовке Authorization.
 
 #### GET /api/users/{userId}/medications
 Получить все лекарства пользователя.
@@ -1062,7 +1300,9 @@ CREATE INDEX "IX_MedicationIntakes_MedicationId"
 
 **Response 403/404:** объект с ошибкой
 
-### 6.5 Эндпоинты Medication Intakes
+### 6.6 Эндпоинты Medication Intakes
+
+**⚠️ Требуется аутентификация:** Все эндпоинты требуют JWT токен в заголовке Authorization.
 
 #### GET /api/users/{userId}/intakes
 Получить историю приемов с фильтрацией.
@@ -1175,6 +1415,11 @@ GET /api/users/{userId}/intakes?medicationId={guid}
 | Email | Содержит @ | "Некорректный формат email" |
 | Email | Длина ≤ 200 | "Email не может превышать 200 символов" |
 | Email | Уникальный | "Пользователь с таким email уже существует" |
+| Password | Длина ≥ 6 (при регистрации) | "Пароль должен содержать минимум 6 символов" |
+| Password | Длина ≤ 100 (при регистрации) | "Пароль не может превышать 100 символов" |
+| PasswordHash | Не пустое | "Хэш пароля не может быть пустым" |
+| PasswordHash | Длина ≤ 500 | "Хэш пароля не может превышать 500 символов" |
+| Role | Валидное значение enum | "Недопустимая роль пользователя" |
 
 ### 7.2 Правила валидации Medication
 
@@ -1240,17 +1485,41 @@ GET /api/users/{userId}/intakes?medicationId={guid}
 **Предусловия:** Нет
 
 **Основной сценарий:**
-1. Пользователь предоставляет имя и email
+1. Пользователь предоставляет имя, email и пароль
 2. Система проверяет уникальность email
-3. Система валидирует данные
-4. Система создает пользователя с уникальным ID
-5. Система возвращает данные пользователя
+3. Система валидирует данные (пароль минимум 6 символов)
+4. Система хэширует пароль с использованием BCrypt
+5. Система создает пользователя с уникальным ID и ролью User
+6. Система генерирует JWT токен
+7. Система возвращает токен и данные пользователя
 
 **Альтернативные сценарии:**
-- 2a. Email уже используется → ошибка
-- 3a. Данные невалидны → ошибка
+- 2a. Email уже используется → ошибка "Пользователь с таким email уже существует"
+- 3a. Пароль менее 6 символов → ошибка
+- 3b. Данные невалидны → ошибка
 
-**Постусловия:** Пользователь зарегистрирован в системе
+**Постусловия:** 
+- Пользователь зарегистрирован в системе
+- Пользователь получил JWT токен для доступа к API
+
+### 8.1.1 UC-001A: Вход в систему
+
+**Актор:** Зарегистрированный пользователь
+
+**Предусловия:** Пользователь зарегистрирован
+
+**Основной сценарий:**
+1. Пользователь предоставляет email и пароль
+2. Система находит пользователя по email
+3. Система проверяет пароль через BCrypt
+4. Система генерирует JWT токен с Claims (ID, Email, Name, Role)
+5. Система возвращает токен и данные пользователя
+
+**Альтернативные сценарии:**
+- 2a. Пользователь не найден → ошибка "Неверный email или пароль"
+- 3a. Неверный пароль → ошибка "Неверный email или пароль"
+
+**Постусловия:** Пользователь получил JWT токен для доступа к API
 
 ### 8.2 UC-002: Добавление лекарства в список
 
@@ -1371,16 +1640,19 @@ GET /api/users/{userId}/intakes?medicationId={guid}
 
 **Покрытие:** Domain и Application слои
 
-**Текущие тесты:** 46 тестов
+**Текущие тесты:** 46 тестов (все обновлены для поддержки аутентификации)
 
 **Domain Layer тесты (38 тестов):**
 
 *UserTests.cs (22 теста):*
-- Создание пользователя с валидными данными
+- Создание пользователя с валидными данными (включая passwordHash и role)
 - Валидация имени (пустое, null, пробелы)
 - Валидация email (пустое, null, неверный формат)
+- Валидация passwordHash (пустое, длина)
+- Валидация role
 - Обновление имени
 - Обновление email
+- Обновление passwordHash и role
 - Добавление лекарства
 - Удаление лекарства
 - Предотвращение дублирования названий лекарств
@@ -1388,6 +1660,8 @@ GET /api/users/{userId}/intakes?medicationId={guid}
 - Использование текущего времени по умолчанию
 - Удаление записи о приеме
 - Ошибки при операциях с несуществующими данными
+
+**Примечание:** Все тесты были обновлены для передачи параметров `passwordHash` и `role` в конструктор `User`.
 
 *MedicationTests.cs (10 тестов):*
 - Создание лекарства с валидными данными
@@ -1434,15 +1708,19 @@ public void User_Constructor_Should_Create_Valid_User()
     // Arrange
     var name = "Иван Иванов";
     var email = "ivan@example.com";
+    var passwordHash = "hashed_password_123";
+    var role = UserRole.User;
 
     // Act
-    var user = new User(name, email);
+    var user = new User(name, email, passwordHash, role);
 
     // Assert
     user.Should().NotBeNull();
     user.Id.Should().NotBeEmpty();
     user.Name.Should().Be(name);
     user.Email.Should().Be(email);
+    user.PasswordHash.Should().Be(passwordHash);
+    user.Role.Should().Be(role);
     user.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
 }
 ```
@@ -1514,9 +1792,11 @@ Passed!  - Failed: 0, Passed: 46, Skipped: 0, Total: 46
 1. Установить PostgreSQL 12+
 2. Создать базу данных `medicationassist`
 3. Обновить строку подключения в `appsettings.json`
-4. Выполнить миграции: `dotnet ef database update --project MedicationAssist.Infrastructure --startup-project MedicationAssist.API`
-5. Запустить приложение: `dotnet run --project MedicationAssist.API`
-6. Открыть Swagger UI: `http://localhost:5000/swagger` (в Development режиме)
+4. **Настроить JWT секреты** в `appsettings.json` (секция `JwtSettings`)
+5. Выполнить миграции: `dotnet ef database update --project MedicationAssist.Infrastructure --startup-project MedicationAssist.API`
+6. Запустить приложение: `dotnet run --project MedicationAssist.API`
+7. Открыть Swagger UI: `http://localhost:5000/swagger` (в Development режиме)
+8. **Зарегистрироваться** через `/api/auth/register` для получения JWT токена
 
 ### 10.5 Переменные окружения
 
@@ -1525,6 +1805,10 @@ Passed!  - Failed: 0, Passed: 46, Skipped: 0, Total: 46
 | ASPNETCORE_ENVIRONMENT | Окружение (Development/Production) | Development |
 | ASPNETCORE_HTTP_PORTS | HTTP порты | 8080 |
 | ConnectionStrings__DefaultConnection | Строка подключения к БД | См. appsettings.json |
+| JwtSettings__Key | Секретный ключ для JWT (мин. 32 символа) | См. appsettings.json |
+| JwtSettings__Issuer | Издатель JWT токена | MedicationAssist |
+| JwtSettings__Audience | Аудитория JWT токена | MedicationAssistUsers |
+| JwtSettings__ExpiresInMinutes | Время жизни токена в минутах | 60 |
 
 ### 10.6 Конфигурация
 
@@ -1540,13 +1824,25 @@ Passed!  - Failed: 0, Passed: 46, Skipped: 0, Total: 46
       "Override": {
         "Microsoft": "Warning",
         "Microsoft.AspNetCore": "Warning",
-        "Microsoft.EntityFrameworkCore": "Warning"
+        "Microsoft.EntityFrameworkCore": "Warning",
+        "System": "Warning"
       }
     }
+  },
+  "JwtSettings": {
+    "Key": "SuperSecretKeyThatIsAtLeast32CharactersLongForHS256",
+    "Issuer": "MedicationAssist",
+    "Audience": "MedicationAssistUsers",
+    "ExpiresInMinutes": 60
   },
   "AllowedHosts": "*"
 }
 ```
+
+**⚠️ Важно для Production:**
+- Генерируйте криптографически стойкий секретный ключ (минимум 32 символа)
+- Храните ключ в безопасном хранилище (Azure Key Vault, AWS Secrets Manager)
+- Никогда не публикуйте секретные ключи в репозитории
 
 ---
 
@@ -1611,45 +1907,73 @@ Passed!  - Failed: 0, Passed: 46, Skipped: 0, Total: 46
 
 ### 12.1 Реализованные меры
 
+**Аутентификация и авторизация:**
+- ✅ JWT токены для аутентификации (HS256)
+- ✅ Время жизни токенов: 60 минут (Production), 1440 минут (Development)
+- ✅ Claims: UserId, Email, Name, Role
+- ✅ Защита всех контроллеров через [Authorize]
+- ✅ Публичные эндпоинты: `/api/auth/register` и `/api/auth/login`
+
+**Хэширование паролей:**
+- ✅ BCrypt.Net-Next 4.0.3
+- ✅ Автоматическая генерация соли
+- ✅ Защита от rainbow table атак
+
+**Управление ролями:**
+- ✅ Enum UserRole: User, Admin
+- ✅ Роль по умолчанию: User
+- ✅ Роль хранится в JWT Claims
+
+**Rate Limiting:**
+- ✅ Fixed Window Limiter
+- ✅ Лимит: 100 запросов в минуту
+- ✅ Очередь: 5 запросов (QueueProcessingOrder.OldestFirst)
+- ✅ Автоматический HTTP 503 при превышении
+
 **Валидация входных данных:**
-- Проверка на уровне Domain (через методы сущностей)
-- Проверка на уровне Application (в сервисах)
-- Проверка типов данных на уровне API (ModelBinding)
+- ✅ Проверка на уровне Domain (через методы сущностей)
+- ✅ Проверка на уровне Application (в сервисах)
+- ✅ Проверка типов данных на уровне API (ModelBinding)
+- ✅ Валидация паролей (минимум 6 символов)
 
 **CORS:**
-- Настроена политика AllowAll для Development
-- Для Production рекомендуется ограничить origins
+- ✅ Настроена политика AllowAll для Development
+- ⚠️ Для Production рекомендуется ограничить origins
 
 **Логирование:**
-- Все операции логируются с указанием пользователя
-- Ошибки детально записываются для анализа
+- ✅ Все операции логируются с указанием email пользователя
+- ✅ Логирование попыток входа (успешных и неуспешных)
+- ✅ Ошибки детально записываются для анализа
 
 ### 12.2 Планируемые меры
 
-**Аутентификация:**
-- JWT токены
-- OAuth 2.0 / OpenID Connect
-- Refresh tokens
+**Расширенная аутентификация:**
+- OAuth 2.0 / OpenID Connect (интеграция с Google, Microsoft)
+- Refresh tokens (обновление JWT без повторного ввода пароля)
+- Multi-factor authentication (2FA)
+- Password reset через email
 
-**Авторизация:**
-- Роли пользователей (Admin, User)
-- Policy-based authorization
-- Claims-based authorization
+**Расширенная авторизация:**
+- Policy-based authorization (более гибкие правила доступа)
+- Resource-based authorization (проверка принадлежности ресурса)
+- Permission-based access (детализированные права доступа)
 
-**Шифрование:**
-- HTTPS (TLS 1.2+)
-- Шифрование паролей (BCrypt/Argon2)
-- Шифрование чувствительных данных в БД
+**Улучшенное шифрование:**
+- HTTPS (TLS 1.3+) обязательно для Production
+- Шифрование чувствительных данных в БД (например, medical notes)
+- Certificate pinning для мобильных приложений
 
-**Защита API:**
-- Rate limiting
-- Request throttling
+**Дополнительная защита API:**
+- Request throttling (динамическое ограничение)
 - API Keys для внешних клиентов
+- CAPTCHA для регистрации
+- IP whitelisting для админских операций
 
-**Аудит:**
-- Логирование всех действий пользователей
-- IP-адреса запросов
+**Расширенный аудит:**
+- IP-адреса и геолокация запросов
 - User Agent информация
+- Session tracking (отслеживание всех сессий пользователя)
+- Security event logging (подозрительная активность)
 
 ---
 
@@ -1714,18 +2038,20 @@ Passed!  - Failed: 0, Passed: 46, Skipped: 0, Total: 46
 ### 14.1 Текущие ограничения
 
 **Функциональные:**
-1. Отсутствует аутентификация и авторизация
-2. Нет системы напоминаний
-3. Нет мобильных приложений
-4. Нет web-интерфейса
-5. Ограниченная фильтрация (только по датам и лекарству)
+1. Нет системы напоминаний (push, email уведомления)
+2. Нет мобильных приложений (iOS, Android)
+3. Нет web-интерфейса (только REST API)
+4. Ограниченная фильтрация (только по датам и лекарству)
+5. Нет функции восстановления пароля
+6. Нет multi-factor authentication (2FA)
 
 **Технические:**
 1. Single-instance развертывание (нет кластеризации)
-2. Отсутствует кеширование
-3. Нет rate limiting
-4. Простая валидация email (только наличие @)
-5. Все даты в UTC (нет поддержки часовых поясов)
+2. Отсутствует кеширование (Redis/MemoryCache)
+3. Простая валидация email (только наличие @)
+4. Все даты в UTC (нет поддержки часовых поясов)
+5. Нет Refresh Tokens (требуется повторный логин после истечения JWT)
+6. Базовый Rate Limiting (fixed window, не per-user)
 
 ### 14.2 Допущения
 
@@ -1747,6 +2073,12 @@ Passed!  - Failed: 0, Passed: 46, Skipped: 0, Total: 46
 
 **Aggregate (Агрегат)** - кластер связанных объектов, рассматриваемых как единое целое для изменения данных. В проекте User является агрегатом.
 
+**BCrypt** - криптографическая хеш-функция для безопасного хэширования паролей с автоматической генерацией соли.
+
+**Bearer Token** - тип токена аутентификации, передаваемый в заголовке Authorization как "Bearer {token}".
+
+**Claims** - утверждения о пользователе, содержащиеся в JWT токене (ID, Email, Role и т.д.).
+
 **Clean Architecture** - архитектурный подход, разделяющий систему на слои с явными зависимостями от внутренних к внешним слоям.
 
 **DDD (Domain-Driven Design)** - подход к разработке сложного ПО, фокусирующийся на моделировании предметной области.
@@ -1757,13 +2089,21 @@ Passed!  - Failed: 0, Passed: 46, Skipped: 0, Total: 46
 
 **Entity (Сущность)** - объект с уникальной идентичностью, который существует во времени.
 
+**HS256 (HMAC SHA256)** - алгоритм подписи JWT токенов, использующий секретный ключ.
+
+**JWT (JSON Web Token)** - компактный токен безопасности, используемый для аутентификации и передачи Claims между сторонами.
+
 **Medication (Лекарство)** - медицинский препарат, который принимает пользователь.
 
 **Medication Intake (Прием лекарства)** - зарегистрированный факт приема лекарственного препарата.
 
+**Rate Limiting** - механизм ограничения количества запросов к API для предотвращения перегрузки.
+
 **Repository (Репозиторий)** - паттерн для абстракции доступа к данным, предоставляющий коллекцию-подобный интерфейс.
 
 **Rich Domain Model** - доменная модель, содержащая бизнес-логику в самих объектах домена.
+
+**Role (Роль)** - категория пользователя, определяющая уровень доступа (User, Admin).
 
 **Unit of Work** - паттерн для управления транзакциями и координации изменений нескольких репозиториев.
 
@@ -1801,6 +2141,7 @@ Passed!  - Failed: 0, Passed: 46, Skipped: 0, Total: 46
 
 | Версия | Дата | Автор | Изменения |
 |--------|------|-------|-----------|
+| 1.2 | 02.12.2024 | Команда разработки | Реализована система аутентификации и авторизации:<br>- JWT токены (Microsoft.AspNetCore.Authentication.JwtBearer 9.0.0)<br>- Хэширование паролей (BCrypt.Net-Next 4.0.3)<br>- Роли пользователей (User, Admin)<br>- AuthController (/api/auth/register, /api/auth/login)<br>- Rate Limiting (100 req/min)<br>- Защита всех контроллеров через [Authorize]<br>- Миграция AddUserAuthentication (PasswordHash, Role)<br>- Обновлена модель User и UserDto |
 | 1.1 | 01.12.2024 | Команда разработки | Добавлен Swagger UI (Swashbuckle.AspNetCore 10.0.1) |
 | 1.0 | 01.12.2024 | Команда разработки | Первая версия спецификации |
 

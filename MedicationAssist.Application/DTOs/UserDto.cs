@@ -1,9 +1,12 @@
+using MedicationAssist.Domain.Entities;
+
 namespace MedicationAssist.Application.DTOs;
 
 public record UserDto(
     Guid Id,
     string Name,
     string Email,
+    UserRole Role,
     DateTime CreatedAt,
     DateTime? UpdatedAt
 );

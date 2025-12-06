@@ -1,11 +1,13 @@
 using MedicationAssist.Application.DTOs;
 using MedicationAssist.Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MedicationAssist.API.Controllers;
 
 [ApiController]
 [Route("api/users/{userId:guid}/[controller]")]
+[Authorize]
 public class MedicationsController : ControllerBase
 {
     private readonly IMedicationService _medicationService;

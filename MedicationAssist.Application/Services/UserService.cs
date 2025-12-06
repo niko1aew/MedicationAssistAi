@@ -87,7 +87,9 @@ public class UserService : IUserService
                 return Result<UserDto>.Failure("Пользователь с таким email уже существует");
             }
 
-            var user = new User(dto.Name, dto.Email);
+            // УСТАРЕВШИЙ МЕТОД: Используйте AuthService.RegisterAsync вместо этого
+            // Временно создаем с пустым хэшем пароля для обратной совместимости
+            var user = new User(dto.Name, dto.Email, "DEPRECATED_USE_AUTH_API", Domain.Entities.UserRole.User);
             await _unitOfWork.Users.AddAsync(user, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -179,6 +181,7 @@ public class UserService : IUserService
             user.Id,
             user.Name,
             user.Email,
+            user.Role,
             user.CreatedAt,
             user.UpdatedAt
         );

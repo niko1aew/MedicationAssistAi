@@ -10,6 +10,8 @@ namespace MedicationAssist.Tests.Unit.Application;
 
 public class UserServiceTests
 {
+    private const string TestPasswordHash = "$2a$11$TestHashForUnitTests123456789";
+    
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<ILogger<UserService>> _loggerMock;
@@ -25,13 +27,18 @@ public class UserServiceTests
 
         _userService = new UserService(_unitOfWorkMock.Object, _loggerMock.Object);
     }
+    
+    private static User CreateTestUser(string name = "Тест", string email = "test@example.com", UserRole role = UserRole.User)
+    {
+        return new User(name, email, TestPasswordHash, role);
+    }
 
     [Fact]
     public async Task GetByIdAsync_Should_Return_User_When_Exists()
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var user = new User("Тест", "test@example.com");
+        var user = CreateTestUser();
         _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
@@ -90,7 +97,7 @@ public class UserServiceTests
     {
         // Arrange
         var dto = new CreateUserDto("Новый пользователь", "existing@example.com");
-        var existingUser = new User("Существующий", "existing@example.com");
+        var existingUser = CreateTestUser("Существующий", "existing@example.com");
         _userRepositoryMock.Setup(r => r.GetByEmailAsync(dto.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingUser);
 
@@ -108,7 +115,7 @@ public class UserServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var user = new User("Старое имя", "old@example.com");
+        var user = CreateTestUser("Старое имя", "old@example.com");
         var dto = new UpdateUserDto("Новое имя", "new@example.com");
 
         _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))

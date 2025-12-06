@@ -6,6 +6,12 @@ namespace MedicationAssist.Tests.Unit.Domain;
 
 public class UserTests
 {
+    private const string TestPasswordHash = "$2a$11$TestHashForUnitTests123456789";
+    
+    private static User CreateTestUser(string name = "Иван Иванов", string email = "ivan@example.com", UserRole role = UserRole.User)
+    {
+        return new User(name, email, TestPasswordHash, role);
+    }
     [Fact]
     public void User_Constructor_Should_Create_Valid_User()
     {
@@ -14,13 +20,15 @@ public class UserTests
         var email = "ivan@example.com";
 
         // Act
-        var user = new User(name, email);
+        var user = CreateTestUser(name, email);
 
         // Assert
         user.Should().NotBeNull();
         user.Id.Should().NotBeEmpty();
         user.Name.Should().Be(name);
         user.Email.Should().Be(email);
+        user.PasswordHash.Should().Be(TestPasswordHash);
+        user.Role.Should().Be(UserRole.User);
         user.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
     }
 
@@ -34,7 +42,7 @@ public class UserTests
         var email = "test@example.com";
 
         // Act
-        Action act = () => new User(invalidName, email);
+        Action act = () => new User(invalidName, email, TestPasswordHash);
 
         // Assert
         act.Should().Throw<DomainException>()
@@ -52,7 +60,7 @@ public class UserTests
         var name = "Test User";
 
         // Act
-        Action act = () => new User(name, invalidEmail);
+        Action act = () => new User(name, invalidEmail, TestPasswordHash);
 
         // Assert
         act.Should().Throw<DomainException>();
@@ -62,7 +70,7 @@ public class UserTests
     public void SetName_Should_Update_Name_And_UpdatedAt()
     {
         // Arrange
-        var user = new User("Старое имя", "test@example.com");
+        var user = CreateTestUser("Старое имя", "test@example.com");
         var newName = "Новое имя";
         var oldUpdatedAt = user.UpdatedAt;
 
@@ -79,7 +87,7 @@ public class UserTests
     public void SetEmail_Should_Update_Email_And_UpdatedAt()
     {
         // Arrange
-        var user = new User("Test", "old@example.com");
+        var user = CreateTestUser("Test", "old@example.com");
         var newEmail = "new@example.com";
 
         // Act
@@ -94,7 +102,7 @@ public class UserTests
     public void AddMedication_Should_Add_Medication_To_User()
     {
         // Arrange
-        var user = new User("Test", "test@example.com");
+        var user = CreateTestUser("Test", "test@example.com");
         var medicationName = "Аспирин";
 
         // Act
@@ -111,7 +119,7 @@ public class UserTests
     public void AddMedication_Should_Throw_When_Duplicate_Name()
     {
         // Arrange
-        var user = new User("Test", "test@example.com");
+        var user = CreateTestUser("Test", "test@example.com");
         var medicationName = "Аспирин";
         user.AddMedication(medicationName);
 
@@ -127,7 +135,7 @@ public class UserTests
     public void RemoveMedication_Should_Remove_Medication()
     {
         // Arrange
-        var user = new User("Test", "test@example.com");
+        var user = CreateTestUser("Test", "test@example.com");
         var medication = user.AddMedication("Аспирин");
 
         // Act
@@ -141,7 +149,7 @@ public class UserTests
     public void RemoveMedication_Should_Throw_When_Not_Found()
     {
         // Arrange
-        var user = new User("Test", "test@example.com");
+        var user = CreateTestUser("Test", "test@example.com");
         var nonExistentId = Guid.NewGuid();
 
         // Act
@@ -156,7 +164,7 @@ public class UserTests
     public void RecordMedicationIntake_Should_Add_Intake_Record()
     {
         // Arrange
-        var user = new User("Test", "test@example.com");
+        var user = CreateTestUser("Test", "test@example.com");
         var medication = user.AddMedication("Аспирин");
         var intakeTime = DateTime.UtcNow;
 
@@ -175,7 +183,7 @@ public class UserTests
     public void RecordMedicationIntake_Should_Use_Current_Time_When_Not_Specified()
     {
         // Arrange
-        var user = new User("Test", "test@example.com");
+        var user = CreateTestUser("Test", "test@example.com");
         var medication = user.AddMedication("Аспирин");
 
         // Act
@@ -189,7 +197,7 @@ public class UserTests
     public void RecordMedicationIntake_Should_Throw_When_Medication_Not_Found()
     {
         // Arrange
-        var user = new User("Test", "test@example.com");
+        var user = CreateTestUser("Test", "test@example.com");
         var nonExistentMedicationId = Guid.NewGuid();
 
         // Act
@@ -204,7 +212,7 @@ public class UserTests
     public void RemoveMedicationIntake_Should_Remove_Intake_Record()
     {
         // Arrange
-        var user = new User("Test", "test@example.com");
+        var user = CreateTestUser("Test", "test@example.com");
         var medication = user.AddMedication("Аспирин");
         var intake = user.RecordMedicationIntake(medication.Id);
 

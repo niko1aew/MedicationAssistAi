@@ -1,7 +1,13 @@
+using System.Text;
+using System.Threading.RateLimiting;
 using MedicationAssist.Application;
 using MedicationAssist.Infrastructure;
 using MedicationAssist.Infrastructure.Data;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +36,50 @@ try
     
     // Настройка Swagger/OpenAPI
     builder.Services.AddSwaggerGen();
+
+    // Настройка JWT Authentication
+    var jwtSecret = builder.Configuration["JwtSettings:Secret"] 
+        ?? throw new InvalidOperationException("JWT Secret не найден в конфигурации");
+    var jwtIssuer = builder.Configuration["JwtSettings:Issuer"];
+    var jwtAudience = builder.Configuration["JwtSettings:Audience"];
+
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+            ClockSkew = TimeSpan.Zero // Убираем задержку валидации токена
+        };
+    });
+
+    builder.Services.AddAuthorization();
+
+    // Настройка Rate Limiting
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: context.User.Identity?.Name ?? context.Request.Headers.Host.ToString(),
+                factory: partition => new FixedWindowRateLimiterOptions
+                {
+                    AutoReplenishment = true,
+                    PermitLimit = 100,
+                    Window = TimeSpan.FromMinutes(1)
+                }));
+
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    });
 
     // Регистрация слоев приложения
     builder.Services.AddApplication();
@@ -79,8 +129,11 @@ try
 
     app.UseHttpsRedirection();
 
+    app.UseRateLimiter();
+
     app.UseCors("AllowAll");
 
+    app.UseAuthentication();
     app.UseAuthorization();
 
     app.MapControllers();

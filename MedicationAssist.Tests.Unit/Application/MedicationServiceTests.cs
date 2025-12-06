@@ -10,6 +10,8 @@ namespace MedicationAssist.Tests.Unit.Application;
 
 public class MedicationServiceTests
 {
+    private const string TestPasswordHash = "$2a$11$TestHashForUnitTests123456789";
+    
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IMedicationRepository> _medicationRepositoryMock;
     private readonly Mock<IUserRepository> _userRepositoryMock;
@@ -27,6 +29,11 @@ public class MedicationServiceTests
         _unitOfWorkMock.Setup(u => u.Users).Returns(_userRepositoryMock.Object);
 
         _medicationService = new MedicationService(_unitOfWorkMock.Object, _loggerMock.Object);
+    }
+    
+    private static User CreateTestUser(string name = "Тест", string email = "test@example.com", UserRole role = UserRole.User)
+    {
+        return new User(name, email, TestPasswordHash, role);
     }
 
     [Fact]
@@ -78,7 +85,7 @@ public class MedicationServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var user = new User("Тест", "test@example.com");
+        var user = CreateTestUser();
         var dto = new CreateMedicationDto("Аспирин", "Обезболивающее", "500mg");
 
         _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))

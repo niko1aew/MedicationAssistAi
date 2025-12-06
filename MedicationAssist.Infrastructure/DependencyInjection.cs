@@ -1,9 +1,12 @@
+using MedicationAssist.Application.Services;
 using MedicationAssist.Domain.Repositories;
 using MedicationAssist.Infrastructure.Data;
 using MedicationAssist.Infrastructure.Repositories;
+using MedicationAssist.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace MedicationAssist.Infrastructure;
 
@@ -24,6 +27,14 @@ public static class DependencyInjection
         services.AddScoped<IMedicationRepository, MedicationRepository>();
         services.AddScoped<IMedicationIntakeRepository, MedicationIntakeRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        // Регистрация сервисов безопасности
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<IJwtTokenService, JwtTokenService>();
+        
+        // Конфигурация JWT
+        services.Configure<JwtSettings>(options => 
+            configuration.GetSection(JwtSettings.SectionName).Bind(options));
 
         return services;
     }
