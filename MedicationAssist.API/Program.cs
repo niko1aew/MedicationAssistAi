@@ -71,8 +71,13 @@ try
     });
 
     // Настройка JWT Authentication
-    var jwtSecret = builder.Configuration["JwtSettings:Secret"] 
-        ?? throw new InvalidOperationException("JWT Secret не найден в конфигурации");
+    var jwtSecret = builder.Configuration["JwtSettings:Secret"];
+    if (string.IsNullOrEmpty(jwtSecret))
+    {
+        throw new InvalidOperationException(
+            "JWT Secret не найден в конфигурации. " +
+            "Установите переменную окружения JwtSettings__Secret или настройте appsettings.json");
+    }
     var jwtIssuer = builder.Configuration["JwtSettings:Issuer"];
     var jwtAudience = builder.Configuration["JwtSettings:Audience"];
 

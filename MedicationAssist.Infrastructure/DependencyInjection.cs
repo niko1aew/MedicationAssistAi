@@ -17,9 +17,17 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         // Регистрация DbContext
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Connection string 'DefaultConnection' не найдена. " +
+                "Установите переменную окружения ConnectionStrings__DefaultConnection или настройте appsettings.json");
+        }
+        
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(
-                configuration.GetConnectionString("DefaultConnection"),
+                connectionString,
                 b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
 
         // Регистрация репозиториев
