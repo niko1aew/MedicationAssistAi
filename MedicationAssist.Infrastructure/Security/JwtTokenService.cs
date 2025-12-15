@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using MedicationAssist.Application.Services;
 using MedicationAssist.Domain.Entities;
@@ -43,6 +44,43 @@ public class JwtTokenService : IJwtTokenService
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public TokenGenerationResult GenerateTokens(User user)
+    {
+        var accessToken = GenerateToken(user);
+        var refreshTokenId = Guid.NewGuid();
+        var refreshToken = GenerateRefreshTokenString();
+        
+        return new TokenGenerationResult
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            AccessTokenExpires = GetAccessTokenExpiration(),
+            RefreshTokenExpires = GetRefreshTokenExpiration(),
+            RefreshTokenId = refreshTokenId
+        };
+    }
+
+    public DateTime GetAccessTokenExpiration()
+    {
+        return DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationInMinutes);
+    }
+
+    public DateTime GetRefreshTokenExpiration()
+    {
+        return DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationInDays);
+    }
+
+    /// <summary>
+    /// Генерирует криптографически случайную строку для refresh токена
+    /// </summary>
+    private static string GenerateRefreshTokenString()
+    {
+        var randomBytes = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomBytes);
+        return Convert.ToBase64String(randomBytes);
     }
 }
 

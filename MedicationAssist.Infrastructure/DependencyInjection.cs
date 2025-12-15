@@ -34,11 +34,13 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IMedicationRepository, MedicationRepository>();
         services.AddScoped<IMedicationIntakeRepository, MedicationIntakeRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         // Регистрация сервисов безопасности
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
+        services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         
         // Конфигурация JWT
         services.Configure<JwtSettings>(options => 
