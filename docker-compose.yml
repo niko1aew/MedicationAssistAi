@@ -67,7 +67,6 @@ services:
       context: .
       dockerfile: Dockerfile.migrations
     container_name: medicationassist-migrations
-    working_dir: /src
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
     depends_on:

@@ -1,30 +1,39 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
+# Настройка NuGet для работы с нестабильным соединением
+ENV NUGET_HTTP_CACHE_PATH=/tmp/nuget-cache
+RUN dotnet nuget locals all --clear
+
 # Копируем файлы проектов
 COPY ["MedicationAssist.API/MedicationAssist.API.csproj", "MedicationAssist.API/"]
 COPY ["MedicationAssist.Application/MedicationAssist.Application.csproj", "MedicationAssist.Application/"]
 COPY ["MedicationAssist.Domain/MedicationAssist.Domain.csproj", "MedicationAssist.Domain/"]
 COPY ["MedicationAssist.Infrastructure/MedicationAssist.Infrastructure.csproj", "MedicationAssist.Infrastructure/"]
 
-# Восстанавливаем зависимости
-RUN dotnet restore "MedicationAssist.API/MedicationAssist.API.csproj" --disable-parallel || \
-    dotnet restore "MedicationAssist.API/MedicationAssist.API.csproj" --disable-parallel || \
-    dotnet restore "MedicationAssist.API/MedicationAssist.API.csproj"
+# Восстанавливаем зависимости с ретраями
+RUN dotnet restore "MedicationAssist.API/MedicationAssist.API.csproj" --disable-parallel --no-cache || \
+    (sleep 5 && dotnet restore "MedicationAssist.API/MedicationAssist.API.csproj" --disable-parallel --no-cache) || \
+    (sleep 10 && dotnet restore "MedicationAssist.API/MedicationAssist.API.csproj" --disable-parallel)
 
 # Копируем весь код
 COPY . .
 
 # Собираем проект
 WORKDIR "/src/MedicationAssist.API"
-RUN dotnet build "MedicationAssist.API.csproj" -c Release -o /app/build
+RUN dotnet build "MedicationAssist.API.csproj" -c Release -o /app/build --no-restore
 
-# Возвращаемся в корневую директорию и делаем  build для Infrastructure
+# Возвращаемся в корневую директорию
 WORKDIR /src
 
-# Устанавливаем dotnet-ef глобально (попытка)
-# Если не удастся - команда будет работать через dotnet-ef из SDK
+# Устанавливаем dotnet-ef как локальный инструмент
+RUN dotnet new tool-manifest 2>/dev/null || true
+RUN dotnet tool install dotnet-ef --version 9.0.0 || \
+    (sleep 5 && dotnet tool install dotnet-ef --version 9.0.0) || \
+    echo "Failed to install dotnet-ef, will try at runtime"
+
+# Добавляем путь к локальным инструментам
 ENV PATH="$PATH:/root/.dotnet/tools"
 
 # Команда запуска миграций
-CMD ["sh", "-c", "dotnet tool install --global dotnet-ef --ignore-failed-sources 2>/dev/null || true && cd /src && dotnet ef database update --project MedicationAssist.Infrastructure --startup-project MedicationAssist.API --context ApplicationDbContext"]
+CMD ["sh", "-c", "dotnet tool restore 2>/dev/null || true && cd /src && dotnet ef database update --project MedicationAssist.Infrastructure --startup-project MedicationAssist.API --context ApplicationDbContext"]
