@@ -35,5 +35,11 @@ RUN dotnet tool install dotnet-ef --version 9.0.0 || \
 # Добавляем путь к локальным инструментам
 ENV PATH="$PATH:/root/.dotnet/tools"
 
+# Режим миграций - не запускать веб-сервер
+ENV MIGRATION_MODE=true
+
+# Устанавливаем рабочую директорию для выполнения миграций
+WORKDIR /src
+
 # Команда запуска миграций
-CMD ["sh", "-c", "dotnet tool restore 2>/dev/null || true && cd /src && dotnet ef database update --project MedicationAssist.Infrastructure --startup-project MedicationAssist.API --context ApplicationDbContext"]
+CMD ["sh", "-c", "set -e && echo 'Restoring dotnet tools...' && dotnet tool restore && echo 'Applying migrations to database...' && dotnet ef database update --project MedicationAssist.Infrastructure/MedicationAssist.Infrastructure.csproj --startup-project MedicationAssist.API/MedicationAssist.API.csproj --context ApplicationDbContext --verbose && echo 'SUCCESS: All migrations applied!'"]

@@ -68,6 +68,7 @@ services:
       dockerfile: Dockerfile.migrations
     container_name: medicationassist-migrations
     environment:
+      - MIGRATION_MODE=true
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
     depends_on:
       postgres:

@@ -7,6 +7,22 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
+// Check if running migrations only
+var isMigrationMode = Environment.GetEnvironmentVariable("MIGRATION_MODE") == "true";
+
+if (isMigrationMode)
+{
+    // Minimal setup for migrations
+    var migrationBuilder = WebApplication.CreateBuilder(args);
+    migrationBuilder.Services.AddInfrastructure(migrationBuilder.Configuration);
+    var migrationApp = migrationBuilder.Build();
+
+    Console.WriteLine("Migration mode: Application built successfully for EF Core tools");
+    // Don't run the app, just exit successfully
+    // EF Core tools will use this application to apply migrations
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Serilog configuration
@@ -30,7 +46,7 @@ try
     // Add services
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
-    
+
     // Configure Swagger/OpenAPI with JWT auth
     builder.Services.AddSwaggerGen(options =>
     {
