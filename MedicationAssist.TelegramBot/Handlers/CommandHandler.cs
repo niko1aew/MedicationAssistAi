@@ -48,7 +48,7 @@ public class CommandHandler
         var chatId = message.Chat.Id;
         var userId = message.From.Id;
         var command = message.Text.Split(' ')[0].ToLower();
-        
+
         // Убираем @botname если есть
         if (command.Contains('@'))
         {
@@ -78,45 +78,45 @@ public class CommandHandler
             case "/start":
                 await HandleStartAsync(chatId, userId, message.From, ct);
                 break;
-                
+
             case "/help":
                 await HandleHelpAsync(chatId, ct);
                 break;
-                
+
             case "/menu":
                 await HandleMenuAsync(chatId, userId, ct);
                 break;
-                
+
             case "/medications":
                 if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
                 await _medicationHandler.ShowMedicationsListAsync(chatId, userId, ct);
                 break;
-                
+
             case "/add":
                 if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
                 await _medicationHandler.StartAddMedicationAsync(chatId, userId, ct);
                 break;
-                
+
             case "/intake":
                 if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
                 await _intakeHandler.ShowIntakeMenuAsync(chatId, userId, ct);
                 break;
-                
+
             case "/history":
                 if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
                 await _intakeHandler.ShowHistoryPeriodMenuAsync(chatId, ct);
                 break;
-                
+
             case "/reminders":
                 if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
                 await _reminderHandler.ShowRemindersMenuAsync(chatId, ct);
                 break;
-                
+
             case "/logout":
                 if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
                 await _authHandler.LogoutAsync(chatId, userId, ct);
                 break;
-                
+
             default:
                 // Неизвестная команда
                 if (command.StartsWith("/"))
@@ -151,47 +151,47 @@ public class CommandHandler
             case ConversationState.AwaitingEmail:
                 await _authHandler.HandleEmailInputAsync(chatId, userId, text, ct);
                 break;
-                
+
             case ConversationState.AwaitingPassword:
-                await _authHandler.HandlePasswordInputAsync(chatId, userId, text, ct);
+                await _authHandler.HandlePasswordInputAsync(chatId, message.From, text, ct);
                 break;
-                
+
             // Аутентификация - регистрация
             case ConversationState.AwaitingRegisterName:
                 await _authHandler.HandleRegisterNameInputAsync(chatId, userId, text, ct);
                 break;
-                
+
             case ConversationState.AwaitingRegisterEmail:
                 await _authHandler.HandleRegisterEmailInputAsync(chatId, userId, text, ct);
                 break;
-                
+
             case ConversationState.AwaitingRegisterPassword:
-                await _authHandler.HandleRegisterPasswordInputAsync(chatId, userId, text, ct);
+                await _authHandler.HandleRegisterPasswordInputAsync(chatId, message.From, text, ct);
                 break;
-                
+
             // Лекарства
             case ConversationState.AwaitingMedicationName:
                 await _medicationHandler.HandleMedicationNameInputAsync(chatId, userId, text, ct);
                 break;
-                
+
             case ConversationState.AwaitingMedicationDosage:
                 await _medicationHandler.HandleMedicationDosageInputAsync(chatId, userId, text, ct);
                 break;
-                
+
             case ConversationState.AwaitingMedicationDescription:
                 await _medicationHandler.HandleMedicationDescriptionInputAsync(chatId, userId, text, ct);
                 break;
-                
+
             // Приёмы
             case ConversationState.AwaitingIntakeNotes:
                 await _intakeHandler.HandleIntakeNotesInputAsync(chatId, userId, text, ct);
                 break;
-                
+
             // Напоминания
             case ConversationState.AwaitingReminderTime:
                 await _reminderHandler.HandleTimeInputAsync(chatId, userId, text, ct);
                 break;
-                
+
             // Нет активного состояния
             case ConversationState.None:
             default:
@@ -204,7 +204,7 @@ public class CommandHandler
     private async Task HandleStartAsync(long chatId, long userId, User telegramUser, CancellationToken ct)
     {
         var session = _sessionService.GetOrCreateSession(userId);
-        
+
         if (session.IsAuthenticated)
         {
             await _botClient.SendMessage(
@@ -219,7 +219,7 @@ public class CommandHandler
                 chatId,
                 Messages.Welcome,
                 cancellationToken: ct);
-            
+
             await _authHandler.ShowAuthMenuAsync(chatId, ct);
         }
     }
@@ -235,7 +235,7 @@ public class CommandHandler
     private async Task HandleMenuAsync(long chatId, long userId, CancellationToken ct)
     {
         var session = _sessionService.GetOrCreateSession(userId);
-        
+
         if (session.IsAuthenticated)
         {
             await _botClient.SendMessage(
@@ -253,34 +253,34 @@ public class CommandHandler
     private async Task HandleCancelAsync(long chatId, long userId, CancellationToken ct)
     {
         _sessionService.ResetState(userId);
-        
+
         await _botClient.SendMessage(
             chatId,
             Messages.OperationCancelled,
             cancellationToken: ct);
-        
+
         await HandleMenuAsync(chatId, userId, ct);
     }
 
     private async Task HandleSkipAsync(long chatId, long userId, string text, CancellationToken ct)
     {
         var session = _sessionService.GetOrCreateSession(userId);
-        
+
         // Передаём обработку соответствующему хендлеру с null/skip значением
         switch (session.State)
         {
             case ConversationState.AwaitingMedicationDosage:
                 await _medicationHandler.HandleMedicationDosageInputAsync(chatId, userId, "/skip", ct);
                 break;
-                
+
             case ConversationState.AwaitingMedicationDescription:
                 await _medicationHandler.HandleMedicationDescriptionInputAsync(chatId, userId, "/skip", ct);
                 break;
-                
+
             case ConversationState.AwaitingIntakeNotes:
                 await _intakeHandler.HandleIntakeNotesInputAsync(chatId, userId, "/skip", ct);
                 break;
-                
+
             default:
                 await _botClient.SendMessage(chatId, Messages.Skipped, cancellationToken: ct);
                 break;
@@ -290,13 +290,13 @@ public class CommandHandler
     private async Task<bool> EnsureAuthenticatedAsync(long chatId, long userId, CancellationToken ct)
     {
         var session = _sessionService.GetOrCreateSession(userId);
-        
+
         if (!session.IsAuthenticated)
         {
             await _authHandler.ShowAuthMenuAsync(chatId, ct);
             return false;
         }
-        
+
         return true;
     }
 }

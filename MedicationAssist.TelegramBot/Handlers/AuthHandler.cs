@@ -190,8 +190,9 @@ public class AuthHandler
     /// <summary>
     /// Обработать ввод пароля для входа
     /// </summary>
-    public async Task HandlePasswordInputAsync(long chatId, long userId, string password, CancellationToken ct)
+    public async Task HandlePasswordInputAsync(long chatId, User telegramUser, string password, CancellationToken ct)
     {
+        var userId = telegramUser.Id;
         var email = _sessionService.GetTempData<string>(userId, "email");
 
         if (string.IsNullOrEmpty(email))
@@ -210,7 +211,7 @@ public class AuthHandler
             {
                 var linkResult = await _userService.LinkTelegramAsync(
                     result.Data.User.Id,
-                    new LinkTelegramDto(userId, null),
+                    new LinkTelegramDto(userId, telegramUser.Username),
                     ct);
 
                 if (!linkResult.IsSuccess)
@@ -298,8 +299,9 @@ public class AuthHandler
     /// <summary>
     /// Обработать ввод пароля для регистрации
     /// </summary>
-    public async Task HandleRegisterPasswordInputAsync(long chatId, long userId, string password, CancellationToken ct)
+    public async Task HandleRegisterPasswordInputAsync(long chatId, User telegramUser, string password, CancellationToken ct)
     {
+        var userId = telegramUser.Id;
         if (password.Length < 6)
         {
             await _botClient.SendMessage(
@@ -327,7 +329,7 @@ public class AuthHandler
             // Привязываем Telegram аккаунт к новому пользователю
             var linkResult = await _userService.LinkTelegramAsync(
                 result.Data!.User.Id,
-                new LinkTelegramDto(userId, null),
+                new LinkTelegramDto(userId, telegramUser.Username),
                 ct);
 
             if (!linkResult.IsSuccess)
