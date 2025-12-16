@@ -142,9 +142,16 @@ public class AuthHandler
 
             _sessionService.Authenticate(telegramUser.Id, result.Data!.User.Id, result.Data.User.Name);
 
+            var credentialsMessage = $"{Messages.QuickStartSuccess}\n\n" +
+                                   $"🌐 <b>Ссылка на сайт:</b> https://medications.meteoassist.space/\n" +
+                                   $"👤 <b>Логин (Email):</b> <code>{email}</code>\n" +
+                                   $"🔑 <b>Пароль:</b> <code>{password}</code>\n\n" +
+                                   $"💡 <i>Сохраните эти данные для входа на сайт!</i>";
+
             await _botClient.SendMessage(
                 chatId,
-                Messages.QuickStartSuccess,
+                credentialsMessage,
+                parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
                 replyMarkup: InlineKeyboards.MainMenu,
                 cancellationToken: ct);
 
