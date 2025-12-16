@@ -77,21 +77,36 @@ public class AuthHandler
     public async Task QuickStartAsync(long chatId, User telegramUser, CancellationToken ct)
     {
         var email = $"{telegramUser.Id}@telegram.local";
-        
+
         // Проверяем, существует ли уже пользователь с таким email
         var existingUser = await _userService.GetByEmailAsync(email, ct);
-        
+
         if (existingUser.IsSuccess && existingUser.Data != null)
         {
-            // Пользователь уже существует - авторизуем его напрямую
+            // Пользователь уже существует - привязываем Telegram если еще не привязан
+            if (existingUser.Data.TelegramUserId == null || existingUser.Data.TelegramUserId != telegramUser.Id)
+            {
+                var linkResult = await _userService.LinkTelegramAsync(
+                    existingUser.Data.Id,
+                    new LinkTelegramDto(telegramUser.Id, telegramUser.Username),
+                    ct);
+
+                if (!linkResult.IsSuccess)
+                {
+                    _logger.LogWarning(
+                        "Failed to link Telegram account for user {UserId}: {Error}",
+                        existingUser.Data.Id, linkResult.Error);
+                }
+            }
+
             _sessionService.Authenticate(telegramUser.Id, existingUser.Data.Id, existingUser.Data.Name);
-            
+
             await _botClient.SendMessage(
                 chatId,
                 string.Format(Messages.WelcomeBack, existingUser.Data.Name),
                 replyMarkup: InlineKeyboards.MainMenu,
                 cancellationToken: ct);
-            
+
             _logger.LogInformation(
                 "Telegram user {TelegramUserId} authenticated via quick start as {Email}",
                 telegramUser.Id, email);
@@ -112,14 +127,27 @@ public class AuthHandler
 
         if (result.IsSuccess)
         {
+            // Привязываем Telegram аккаунт к новому пользователю
+            var linkResult = await _userService.LinkTelegramAsync(
+                result.Data!.User.Id,
+                new LinkTelegramDto(telegramUser.Id, telegramUser.Username),
+                ct);
+
+            if (!linkResult.IsSuccess)
+            {
+                _logger.LogWarning(
+                    "Failed to link Telegram account for user {UserId}: {Error}",
+                    result.Data.User.Id, linkResult.Error);
+            }
+
             _sessionService.Authenticate(telegramUser.Id, result.Data!.User.Id, result.Data.User.Name);
-            
+
             await _botClient.SendMessage(
                 chatId,
                 Messages.QuickStartSuccess,
                 replyMarkup: InlineKeyboards.MainMenu,
                 cancellationToken: ct);
-            
+
             _logger.LogInformation(
                 "Quick registration of Telegram user {TelegramUserId} as {Email}",
                 telegramUser.Id, email);
@@ -151,7 +179,7 @@ public class AuthHandler
 
         _sessionService.SetTempData(userId, "email", email);
         _sessionService.SetState(userId, ConversationState.AwaitingPassword);
-        
+
         await _botClient.SendMessage(
             chatId,
             Messages.EnterPassword,
@@ -165,7 +193,7 @@ public class AuthHandler
     public async Task HandlePasswordInputAsync(long chatId, long userId, string password, CancellationToken ct)
     {
         var email = _sessionService.GetTempData<string>(userId, "email");
-        
+
         if (string.IsNullOrEmpty(email))
         {
             _sessionService.ResetState(userId);
@@ -174,17 +202,33 @@ public class AuthHandler
         }
 
         var result = await _authService.LoginAsync(new LoginDto { Email = email, Password = password });
-        
+
         if (result.IsSuccess)
         {
+            // Привязываем Telegram аккаунт если еще не привязан
+            if (result.Data!.User.TelegramUserId == null || result.Data.User.TelegramUserId != userId)
+            {
+                var linkResult = await _userService.LinkTelegramAsync(
+                    result.Data.User.Id,
+                    new LinkTelegramDto(userId, null),
+                    ct);
+
+                if (!linkResult.IsSuccess)
+                {
+                    _logger.LogWarning(
+                        "Failed to link Telegram account for user {UserId}: {Error}",
+                        result.Data.User.Id, linkResult.Error);
+                }
+            }
+
             _sessionService.Authenticate(userId, result.Data!.User.Id, result.Data.User.Name);
-            
+
             await _botClient.SendMessage(
                 chatId,
                 string.Format(Messages.LoginSuccess, result.Data.User.Name),
                 replyMarkup: InlineKeyboards.MainMenu,
                 cancellationToken: ct);
-            
+
             _logger.LogInformation(
                 "Telegram user {TelegramUserId} logged in as {Email}",
                 userId, email);
@@ -192,7 +236,7 @@ public class AuthHandler
         else
         {
             _sessionService.ResetState(userId);
-            
+
             await _botClient.SendMessage(
                 chatId,
                 Messages.InvalidCredentials,
@@ -218,7 +262,7 @@ public class AuthHandler
 
         _sessionService.SetTempData(userId, "name", name);
         _sessionService.SetState(userId, ConversationState.AwaitingRegisterEmail);
-        
+
         await _botClient.SendMessage(
             chatId,
             Messages.EnterEmail,
@@ -243,7 +287,7 @@ public class AuthHandler
 
         _sessionService.SetTempData(userId, "email", email);
         _sessionService.SetState(userId, ConversationState.AwaitingRegisterPassword);
-        
+
         await _botClient.SendMessage(
             chatId,
             Messages.EnterPassword,
@@ -268,7 +312,7 @@ public class AuthHandler
 
         var name = _sessionService.GetTempData<string>(userId, "name");
         var email = _sessionService.GetTempData<string>(userId, "email");
-        
+
         if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(email))
         {
             _sessionService.ResetState(userId);
@@ -277,17 +321,30 @@ public class AuthHandler
         }
 
         var result = await _authService.RegisterAsync(new RegisterDto { Name = name, Email = email, Password = password });
-        
+
         if (result.IsSuccess)
         {
+            // Привязываем Telegram аккаунт к новому пользователю
+            var linkResult = await _userService.LinkTelegramAsync(
+                result.Data!.User.Id,
+                new LinkTelegramDto(userId, null),
+                ct);
+
+            if (!linkResult.IsSuccess)
+            {
+                _logger.LogWarning(
+                    "Failed to link Telegram account for user {UserId}: {Error}",
+                    result.Data.User.Id, linkResult.Error);
+            }
+
             _sessionService.Authenticate(userId, result.Data!.User.Id, result.Data.User.Name);
-            
+
             await _botClient.SendMessage(
                 chatId,
                 string.Format(Messages.RegisterSuccess, result.Data.User.Name),
                 replyMarkup: InlineKeyboards.MainMenu,
                 cancellationToken: ct);
-            
+
             _logger.LogInformation(
                 "New user registered via Telegram: {Email}",
                 email);
@@ -295,11 +352,11 @@ public class AuthHandler
         else
         {
             _sessionService.ResetState(userId);
-            
+
             var errorMessage = result.Error?.Contains("email") == true
                 ? Messages.EmailExists
                 : string.Format(Messages.Error, result.Error);
-            
+
             await _botClient.SendMessage(
                 chatId,
                 errorMessage,
@@ -314,7 +371,7 @@ public class AuthHandler
     public async Task LogoutAsync(long chatId, long userId, CancellationToken ct)
     {
         _sessionService.Logout(userId);
-        
+
         await _botClient.SendMessage(
             chatId,
             Messages.LogoutSuccess,
