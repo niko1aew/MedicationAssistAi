@@ -1,0 +1,30 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Копируем файлы проектов
+COPY ["MedicationAssist.API/MedicationAssist.API.csproj", "MedicationAssist.API/"]
+COPY ["MedicationAssist.Application/MedicationAssist.Application.csproj", "MedicationAssist.Application/"]
+COPY ["MedicationAssist.Domain/MedicationAssist.Domain.csproj", "MedicationAssist.Domain/"]
+COPY ["MedicationAssist.Infrastructure/MedicationAssist.Infrastructure.csproj", "MedicationAssist.Infrastructure/"]
+
+# Восстанавливаем зависимости
+RUN dotnet restore "MedicationAssist.API/MedicationAssist.API.csproj" --disable-parallel || \
+    dotnet restore "MedicationAssist.API/MedicationAssist.API.csproj" --disable-parallel || \
+    dotnet restore "MedicationAssist.API/MedicationAssist.API.csproj"
+
+# Копируем весь код
+COPY . .
+
+# Собираем проект
+WORKDIR "/src/MedicationAssist.API"
+RUN dotnet build "MedicationAssist.API.csproj" -c Release -o /app/build
+
+# Возвращаемся в корневую директорию и делаем  build для Infrastructure
+WORKDIR /src
+
+# Устанавливаем dotnet-ef глобально (попытка)
+# Если не удастся - команда будет работать через dotnet-ef из SDK
+ENV PATH="$PATH:/root/.dotnet/tools"
+
+# Команда запуска миграций
+CMD ["sh", "-c", "dotnet tool install --global dotnet-ef --ignore-failed-sources 2>/dev/null || true && cd /src && dotnet ef database update --project MedicationAssist.Infrastructure --startup-project MedicationAssist.API --context ApplicationDbContext"]

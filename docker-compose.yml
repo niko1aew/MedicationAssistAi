@@ -65,19 +65,11 @@ services:
   migrations:
     build:
       context: .
-      dockerfile: MedicationAssist.API/Dockerfile
-      target: build
+      dockerfile: Dockerfile.migrations
     container_name: medicationassist-migrations
+    working_dir: /src
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
-    command: >
-      sh -c "dotnet tool install -g dotnet-ef &&
-             export PATH=$$PATH:/root/.dotnet/tools &&
-             cd /src &&
-             dotnet ef database update
-               --project MedicationAssist.Infrastructure
-               --startup-project MedicationAssist.API
-               --context ApplicationDbContext"
     depends_on:
       postgres:
         condition: service_healthy
