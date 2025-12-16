@@ -7,6 +7,8 @@ public record UserDto(
     string Name,
     string Email,
     UserRole Role,
+    long? TelegramUserId,
+    string? TelegramUsername,
     DateTime CreatedAt,
     DateTime? UpdatedAt
 );
@@ -19,5 +21,10 @@ public record CreateUserDto(
 public record UpdateUserDto(
     string Name,
     string Email
+);
+
+public record LinkTelegramDto(
+    long TelegramUserId,
+    string? TelegramUsername
 );
 

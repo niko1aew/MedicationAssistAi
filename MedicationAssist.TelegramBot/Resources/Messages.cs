@@ -1,0 +1,112 @@
+namespace MedicationAssist.TelegramBot.Resources;
+
+/// <summary>
+/// Шаблоны сообщений бота на русском языке
+/// </summary>
+public static class Messages
+{
+    // Приветствие и меню
+    public const string Welcome = "👋 Добро пожаловать в MedicationAssist!\n\nЯ помогу вам контролировать приём лекарств и напомню о необходимости их принять.";
+    public const string WelcomeBack = "👋 С возвращением, {0}!\n\nВыберите действие в меню ниже.";
+    public const string MainMenu = "📋 Главное меню\n\nВыберите действие:";
+    public const string Help = @"📖 Доступные команды:
+
+/start - Начать работу с ботом
+/menu - Главное меню
+/medications - Список ваших лекарств
+/add - Добавить новое лекарство
+/intake - Записать приём лекарства
+/history - История приёмов
+/reminders - Управление напоминаниями
+/logout - Выйти из аккаунта
+/help - Показать эту справку";
+
+    // Аутентификация
+    public const string AuthRequired = "🔐 Для использования бота необходимо войти в аккаунт или зарегистрироваться.";
+    public const string EnterEmail = "📧 Введите ваш email:";
+    public const string EnterPassword = "🔐 Введите пароль:";
+    public const string EnterName = "👤 Введите ваше имя:";
+    public const string LoginSuccess = "✅ Вы успешно вошли в систему!\n\nДобро пожаловать, {0}!";
+    public const string RegisterSuccess = "✅ Регистрация успешна!\n\nДобро пожаловать, {0}!";
+    public const string QuickStartSuccess = "⚡ Быстрая регистрация выполнена!\n\nВаш аккаунт создан и привязан к Telegram.";
+    public const string LogoutSuccess = "👋 Вы вышли из аккаунта. До свидания!";
+    public const string InvalidCredentials = "❌ Неверный email или пароль. Попробуйте снова.";
+    public const string EmailExists = "❌ Пользователь с таким email уже существует.";
+    public const string InvalidEmail = "❌ Некорректный формат email. Попробуйте снова.";
+    public const string PasswordTooShort = "❌ Пароль должен содержать минимум 6 символов.";
+
+    // Лекарства
+    public const string MedicationsList = "💊 Ваши лекарства:\n\n{0}";
+    public const string MedicationItem = "• {0}{1}";
+    public const string MedicationDosage = " ({0})";
+    public const string NoMedications = "📭 У вас пока нет лекарств.\n\nНажмите кнопку ниже, чтобы добавить первое лекарство.";
+    public const string EnterMedicationName = "💊 Введите название лекарства:";
+    public const string EnterMedicationDosage = "💉 Введите дозировку (например, \"500 мг\" или \"2 таблетки\"):\n\nИли нажмите /skip чтобы пропустить.";
+    public const string EnterMedicationDescription = "📝 Введите описание или примечания:\n\nИли нажмите /skip чтобы пропустить.";
+    public const string MedicationAdded = "✅ Лекарство \"{0}\" успешно добавлено!";
+    public const string MedicationDeleted = "🗑️ Лекарство \"{0}\" удалено.";
+    public const string MedicationUpdated = "✅ Лекарство обновлено!";
+    public const string SelectMedication = "💊 Выберите лекарство:";
+    public const string SelectMedicationToDelete = "🗑️ Выберите лекарство для удаления:";
+    public const string MedicationDetails = @"💊 {0}
+
+📋 Дозировка: {1}
+📝 Описание: {2}
+📅 Добавлено: {3}";
+    public const string ConfirmDeleteMedication = "⚠️ Вы уверены, что хотите удалить лекарство \"{0}\"?";
+    public const string MedicationNameTooLong = "❌ Название лекарства слишком длинное (максимум 200 символов).";
+    public const string MedicationExists = "❌ Лекарство с таким названием уже существует.";
+
+    // Приёмы лекарств
+    public const string SelectMedicationForIntake = "💊 Выберите лекарство, приём которого хотите записать:";
+    public const string IntakeRecorded = "✅ Приём лекарства \"{0}\" зафиксирован!\n\n🕐 Время: {1}";
+    public const string IntakeRecordedWithNotes = "✅ Приём лекарства \"{0}\" зафиксирован!\n\n🕐 Время: {1}\n📝 Примечание: {2}";
+    public const string EnterIntakeNotes = "📝 Добавьте примечание к приёму (опционально):\n\nИли нажмите /skip чтобы пропустить.";
+    public const string IntakeDeleted = "🗑️ Запись о приёме удалена.";
+    public const string NoIntakes = "📭 История приёмов пуста.";
+    public const string IntakeHistory = "📜 История приёмов:\n\n{0}";
+    public const string IntakeHistoryItem = "• {0} - {1}\n  🕐 {2}{3}\n";
+    public const string IntakeNotes = "\n  📝 {0}";
+    public const string IntakeHistoryEmpty = "📭 За выбранный период приёмов не найдено.";
+    public const string SelectHistoryPeriod = "📅 Выберите период для просмотра истории:";
+
+    // Напоминания
+    public const string RemindersMenu = "⏰ Управление напоминаниями\n\nВыберите действие:";
+    public const string NoReminders = "📭 У вас пока нет напоминаний.";
+    public const string RemindersList = "⏰ Ваши напоминания:\n\n{0}";
+    public const string ReminderItem = "• {0} - {1}\n";
+    public const string SelectMedicationForReminder = "💊 Выберите лекарство для напоминания:";
+    public const string EnterReminderTime = "🕐 Введите время напоминания в формате ЧЧ:ММ (например, 08:00):";
+    public const string ReminderSet = "✅ Напоминание установлено!\n\n💊 {0}\n⏰ Время: {1}";
+    public const string ReminderDeleted = "🗑️ Напоминание удалено.";
+    public const string ReminderNotification = "⏰ Время принять лекарство!\n\n💊 {0}\n💉 Дозировка: {1}";
+    public const string InvalidTimeFormat = "❌ Неверный формат времени. Введите время в формате ЧЧ:ММ (например, 08:00 или 14:30).";
+    public const string SelectReminderToDelete = "🗑️ Выберите напоминание для удаления:";
+
+    // Общие сообщения
+    public const string Error = "❌ Произошла ошибка: {0}";
+    public const string UnknownError = "❌ Произошла неизвестная ошибка. Попробуйте позже.";
+    public const string OperationCancelled = "❌ Операция отменена.";
+    public const string UnknownCommand = "❓ Неизвестная команда. Используйте /help для просмотра доступных команд.";
+    public const string ActionNotAvailable = "⚠️ Это действие сейчас недоступно.";
+    public const string Skipped = "⏭️ Пропущено.";
+    public const string Back = "◀️ Назад";
+    public const string Cancel = "❌ Отмена";
+    public const string Confirm = "✅ Подтвердить";
+    public const string Yes = "✅ Да";
+    public const string No = "❌ Нет";
+    public const string NotSpecified = "не указано";
+    public const string Loading = "⏳ Загрузка...";
+    public const string ProcessingRequest = "⏳ Обрабатываю запрос...";
+
+    // Форматирование дат
+    public const string DateFormat = "dd.MM.yyyy";
+    public const string TimeFormat = "HH:mm";
+    public const string DateTimeFormat = "dd.MM.yyyy HH:mm";
+    public const string Today = "Сегодня";
+    public const string Yesterday = "Вчера";
+    public const string LastWeek = "За неделю";
+    public const string LastMonth = "За месяц";
+    public const string AllTime = "За всё время";
+}
+

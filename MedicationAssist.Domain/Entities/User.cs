@@ -9,14 +9,18 @@ public class User : Entity
 {
     private readonly List<Medication> _medications = new();
     private readonly List<MedicationIntake> _medicationIntakes = new();
+    private readonly List<Reminder> _reminders = new();
 
     public string Name { get; private set; }
     public string Email { get; private set; }
     public string PasswordHash { get; private set; }
     public UserRole Role { get; private set; }
+    public long? TelegramUserId { get; private set; }
+    public string? TelegramUsername { get; private set; }
 
     public IReadOnlyCollection<Medication> Medications => _medications.AsReadOnly();
     public IReadOnlyCollection<MedicationIntake> MedicationIntakes => _medicationIntakes.AsReadOnly();
+    public IReadOnlyCollection<Reminder> Reminders => _reminders.AsReadOnly();
 
     private User() : base()
     {
@@ -37,10 +41,10 @@ public class User : Entity
     public void SetName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
-            throw new DomainException("Имя пользователя не может быть пустым");
+            throw new DomainException("User name cannot be empty");
 
         if (name.Length > 200)
-            throw new DomainException("Имя пользователя не может превышать 200 символов");
+            throw new DomainException("User name cannot exceed 200 characters");
 
         Name = name;
         MarkAsUpdated();
@@ -49,13 +53,13 @@ public class User : Entity
     public void SetEmail(string email)
     {
         if (string.IsNullOrWhiteSpace(email))
-            throw new DomainException("Email не может быть пустым");
+            throw new DomainException("Email cannot be empty");
 
         if (!email.Contains('@'))
-            throw new DomainException("Некорректный формат email");
+            throw new DomainException("Invalid email format");
 
         if (email.Length > 200)
-            throw new DomainException("Email не может превышать 200 символов");
+            throw new DomainException("Email cannot exceed 200 characters");
 
         Email = email;
         MarkAsUpdated();
@@ -64,7 +68,7 @@ public class User : Entity
     public void SetPasswordHash(string passwordHash)
     {
         if (string.IsNullOrWhiteSpace(passwordHash))
-            throw new DomainException("Хэш пароля не может быть пустым");
+            throw new DomainException("Password hash cannot be empty");
 
         PasswordHash = passwordHash;
         MarkAsUpdated();
@@ -76,10 +80,27 @@ public class User : Entity
         MarkAsUpdated();
     }
 
+    public void SetTelegramAccount(long telegramUserId, string? telegramUsername = null)
+    {
+        if (telegramUserId <= 0)
+            throw new DomainException("Telegram User ID must be a positive number");
+
+        TelegramUserId = telegramUserId;
+        TelegramUsername = telegramUsername;
+        MarkAsUpdated();
+    }
+
+    public void RemoveTelegramAccount()
+    {
+        TelegramUserId = null;
+        TelegramUsername = null;
+        MarkAsUpdated();
+    }
+
     public Medication AddMedication(string name, string? description = null, string? dosage = null)
     {
         if (_medications.Any(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
-            throw new DomainException($"Лекарство с названием '{name}' уже существует в списке");
+            throw new DomainException($"Medication with name '{name}' already exists in the list");
 
         var medication = new Medication(Id, name, description, dosage);
         _medications.Add(medication);
@@ -92,11 +113,11 @@ public class User : Entity
     {
         var medication = _medications.FirstOrDefault(m => m.Id == medicationId);
         if (medication == null)
-            throw new DomainException("Лекарство не найдено");
+            throw new DomainException("Medication not found");
 
         // Проверяем, нет ли связанных приемов
         if (_medicationIntakes.Any(mi => mi.MedicationId == medicationId))
-            throw new DomainException("Невозможно удалить лекарство, так как существуют записи о его приеме");
+            throw new DomainException("Cannot delete medication as there are intake records associated with it");
 
         _medications.Remove(medication);
         MarkAsUpdated();
@@ -106,7 +127,7 @@ public class User : Entity
     {
         var medication = _medications.FirstOrDefault(m => m.Id == medicationId);
         if (medication == null)
-            throw new DomainException("Лекарство не найдено в списке пользователя");
+            throw new DomainException("Medication not found in user's list");
 
         var intake = new MedicationIntake(Id, medicationId, intakeTime ?? DateTime.UtcNow, notes);
         _medicationIntakes.Add(intake);
@@ -119,7 +140,7 @@ public class User : Entity
     {
         var intake = _medicationIntakes.FirstOrDefault(mi => mi.Id == intakeId);
         if (intake == null)
-            throw new DomainException("Запись о приеме лекарства не найдена");
+            throw new DomainException("Medication intake record not found");
 
         _medicationIntakes.Remove(intake);
         MarkAsUpdated();
@@ -128,7 +149,7 @@ public class User : Entity
     internal void AddMedicationInternal(Medication medication)
     {
         if (medication.UserId != Id)
-            throw new DomainException("Лекарство принадлежит другому пользователю");
+            throw new DomainException("Medication belongs to another user");
 
         _medications.Add(medication);
     }
@@ -136,9 +157,17 @@ public class User : Entity
     internal void AddMedicationIntakeInternal(MedicationIntake intake)
     {
         if (intake.UserId != Id)
-            throw new DomainException("Запись о приеме принадлежит другому пользователю");
+            throw new DomainException("Medication intake record belongs to another user");
 
         _medicationIntakes.Add(intake);
+    }
+
+    internal void AddReminderInternal(Reminder reminder)
+    {
+        if (reminder.UserId != Id)
+            throw new DomainException("Reminder belongs to another user");
+
+        _reminders.Add(reminder);
     }
 }
 

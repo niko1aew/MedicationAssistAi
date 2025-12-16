@@ -25,16 +25,16 @@ public class MedicationService : IMedicationService
             var medication = await _unitOfWork.Medications.GetByIdAsync(id, cancellationToken);
             if (medication == null)
             {
-                _logger.LogWarning("Лекарство с ID {MedicationId} не найдено", id);
-                return Result<MedicationDto>.Failure("Лекарство не найдено");
+                _logger.LogWarning("Medication with ID {MedicationId} not found", id);
+                return Result<MedicationDto>.Failure("Medication not found");
             }
 
             return Result<MedicationDto>.Success(MapToDto(medication));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении лекарства {MedicationId}", id);
-            return Result<MedicationDto>.Failure($"Ошибка при получении лекарства: {ex.Message}");
+            _logger.LogError(ex, "Error while getting medication {MedicationId}", id);
+            return Result<MedicationDto>.Failure($"Error while getting medication: {ex.Message}");
         }
     }
 
@@ -45,20 +45,20 @@ public class MedicationService : IMedicationService
             var userExists = await _unitOfWork.Users.ExistsAsync(userId, cancellationToken);
             if (!userExists)
             {
-                _logger.LogWarning("Пользователь с ID {UserId} не найден", userId);
-                return Result<IEnumerable<MedicationDto>>.Failure("Пользователь не найден");
+                _logger.LogWarning("User with ID {UserId} not found", userId);
+                return Result<IEnumerable<MedicationDto>>.Failure("User not found");
             }
 
             var medications = await _unitOfWork.Medications.GetByUserIdAsync(userId, cancellationToken);
             var medicationDtos = medications.Select(MapToDto);
 
-            _logger.LogInformation("Получено {Count} лекарств для пользователя {UserId}", medicationDtos.Count(), userId);
+            _logger.LogInformation("Retrieved {Count} medications for user {UserId}", medicationDtos.Count(), userId);
             return Result<IEnumerable<MedicationDto>>.Success(medicationDtos);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении списка лекарств для пользователя {UserId}", userId);
-            return Result<IEnumerable<MedicationDto>>.Failure($"Ошибка при получении списка лекарств: {ex.Message}");
+            _logger.LogError(ex, "Error while getting medication list for user {UserId}", userId);
+            return Result<IEnumerable<MedicationDto>>.Failure($"Error while getting medication list: {ex.Message}");
         }
     }
 
@@ -69,26 +69,26 @@ public class MedicationService : IMedicationService
             var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
             if (user == null)
             {
-                _logger.LogWarning("Попытка создать лекарство для несуществующего пользователя {UserId}", userId);
-                return Result<MedicationDto>.Failure("Пользователь не найден");
+                _logger.LogWarning("Attempt to create medication for non-existent user {UserId}", userId);
+                return Result<MedicationDto>.Failure("User not found");
             }
 
             var medication = new Medication(userId, dto.Name, dto.Description, dto.Dosage);
             await _unitOfWork.Medications.AddAsync(medication, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Создано новое лекарство {MedicationId} для пользователя {UserId}", medication.Id, userId);
+            _logger.LogInformation("Created new medication {MedicationId} for user {UserId}", medication.Id, userId);
             return Result<MedicationDto>.Success(MapToDto(medication));
         }
         catch (DomainException ex)
         {
-            _logger.LogWarning(ex, "Ошибка валидации при создании лекарства для пользователя {UserId}", userId);
+            _logger.LogWarning(ex, "Validation error while creating medication for user {UserId}", userId);
             return Result<MedicationDto>.Failure(ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при создании лекарства для пользователя {UserId}", userId);
-            return Result<MedicationDto>.Failure($"Ошибка при создании лекарства: {ex.Message}");
+            _logger.LogError(ex, "Error while creating medication for user {UserId}", userId);
+            return Result<MedicationDto>.Failure($"Error while creating medication: {ex.Message}");
         }
     }
 
@@ -99,8 +99,8 @@ public class MedicationService : IMedicationService
             var medication = await _unitOfWork.Medications.GetByIdAsync(id, cancellationToken);
             if (medication == null)
             {
-                _logger.LogWarning("Попытка обновить несуществующее лекарство {MedicationId}", id);
-                return Result<MedicationDto>.Failure("Лекарство не найдено");
+                _logger.LogWarning("Attempt to update non-existent medication {MedicationId}", id);
+                return Result<MedicationDto>.Failure("Medication not found");
             }
 
             medication.SetName(dto.Name);
@@ -110,18 +110,18 @@ public class MedicationService : IMedicationService
             await _unitOfWork.Medications.UpdateAsync(medication, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Обновлено лекарство {MedicationId}", id);
+            _logger.LogInformation("Updated medication {MedicationId}", id);
             return Result<MedicationDto>.Success(MapToDto(medication));
         }
         catch (DomainException ex)
         {
-            _logger.LogWarning(ex, "Ошибка валидации при обновлении лекарства {MedicationId}", id);
+            _logger.LogWarning(ex, "Validation error while updating medication {MedicationId}", id);
             return Result<MedicationDto>.Failure(ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при обновлении лекарства {MedicationId}", id);
-            return Result<MedicationDto>.Failure($"Ошибка при обновлении лекарства: {ex.Message}");
+            _logger.LogError(ex, "Error while updating medication {MedicationId}", id);
+            return Result<MedicationDto>.Failure($"Error while updating medication: {ex.Message}");
         }
     }
 
@@ -132,20 +132,20 @@ public class MedicationService : IMedicationService
             var exists = await _unitOfWork.Medications.ExistsAsync(id, cancellationToken);
             if (!exists)
             {
-                _logger.LogWarning("Попытка удалить несуществующее лекарство {MedicationId}", id);
-                return Result.Failure("Лекарство не найдено");
+                _logger.LogWarning("Attempt to delete non-existent medication {MedicationId}", id);
+                return Result.Failure("Medication not found");
             }
 
             await _unitOfWork.Medications.DeleteAsync(id, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Удалено лекарство {MedicationId}", id);
+            _logger.LogInformation("Deleted medication {MedicationId}", id);
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при удалении лекарства {MedicationId}", id);
-            return Result.Failure($"Ошибка при удалении лекарства: {ex.Message}");
+            _logger.LogError(ex, "Error while deleting medication {MedicationId}", id);
+            return Result.Failure($"Error while deleting medication: {ex.Message}");
         }
     }
 

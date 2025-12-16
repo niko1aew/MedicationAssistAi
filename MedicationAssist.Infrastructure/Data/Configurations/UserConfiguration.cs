@@ -32,6 +32,15 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasConversion<string>()
             .HasMaxLength(50);
 
+        builder.Property(u => u.TelegramUserId)
+            .IsRequired(false);
+
+        builder.HasIndex(u => u.TelegramUserId);
+
+        builder.Property(u => u.TelegramUsername)
+            .IsRequired(false)
+            .HasMaxLength(255);
+
         builder.Property(u => u.CreatedAt)
             .IsRequired();
 

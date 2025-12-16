@@ -28,10 +28,10 @@ public class Medication : Entity
     public void SetName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
-            throw new DomainException("Название лекарства не может быть пустым");
+            throw new DomainException("Medication name cannot be empty");
 
         if (name.Length > 200)
-            throw new DomainException("Название лекарства не может превышать 200 символов");
+            throw new DomainException("Medication name cannot exceed 200 characters");
 
         Name = name;
         MarkAsUpdated();
@@ -40,7 +40,7 @@ public class Medication : Entity
     public void SetDescription(string? description)
     {
         if (description?.Length > 1000)
-            throw new DomainException("Описание лекарства не может превышать 1000 символов");
+            throw new DomainException("Medication description cannot exceed 1000 characters");
 
         Description = description;
         MarkAsUpdated();
@@ -49,7 +49,7 @@ public class Medication : Entity
     public void SetDosage(string? dosage)
     {
         if (dosage?.Length > 100)
-            throw new DomainException("Дозировка не может превышать 100 символов");
+            throw new DomainException("Dosage cannot exceed 100 characters");
 
         Dosage = dosage;
         MarkAsUpdated();

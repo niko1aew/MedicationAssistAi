@@ -21,8 +21,8 @@ public static class DependencyInjection
         if (string.IsNullOrEmpty(connectionString))
         {
             throw new InvalidOperationException(
-                "Connection string 'DefaultConnection' не найдена. " +
-                "Установите переменную окружения ConnectionStrings__DefaultConnection или настройте appsettings.json");
+                "Connection string 'DefaultConnection' not found. " +
+                "Set the ConnectionStrings__DefaultConnection environment variable or configure appsettings.json");
         }
         
         services.AddDbContext<ApplicationDbContext>(options =>
@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IMedicationRepository, MedicationRepository>();
         services.AddScoped<IMedicationIntakeRepository, MedicationIntakeRepository>();
+        services.AddScoped<IReminderRepository, ReminderRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 

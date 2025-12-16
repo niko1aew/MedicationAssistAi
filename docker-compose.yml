@@ -34,13 +34,55 @@ services:
     ports:
       - "${API_PORT}:${ASPNETCORE_HTTP_PORTS}"
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
     networks:
       - medicationassist-network
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
+
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: MedicationAssist.TelegramBot/Dockerfile
+    container_name: medicationassist-telegram-bot
+    environment:
+      - DOTNET_ENVIRONMENT=Production
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_WEBHOOK_URL=${TELEGRAM_WEBHOOK_URL:-}
+      - DATABASE_CONNECTION_STRING=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - JWT_SECRET_KEY=${JWT_SECRET}
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    networks:
+      - medicationassist-network
+    volumes:
+      - ./logs/telegram-bot:/app/logs
+    restart: unless-stopped
+
+  migrations:
+    build:
+      context: .
+      dockerfile: MedicationAssist.API/Dockerfile
+      target: build
+    container_name: medicationassist-migrations
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+    command: >
+      sh -c "dotnet tool install -g dotnet-ef &&
+             export PATH=$$PATH:/root/.dotnet/tools &&
+             cd /src &&
+             dotnet ef database update
+               --project MedicationAssist.Infrastructure
+               --startup-project MedicationAssist.API
+               --context ApplicationDbContext"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - medicationassist-network
 
 volumes:
   postgres_data:

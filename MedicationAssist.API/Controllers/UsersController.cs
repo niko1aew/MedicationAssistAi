@@ -120,5 +120,94 @@ public class UsersController : ControllerBase
 
         return NoContent();
     }
+
+    /// <summary>
+    /// Получить пользователя по Telegram ID
+    /// </summary>
+    [HttpGet("by-telegram/{telegramUserId:long}")]
+    public async Task<ActionResult<UserDto>> GetByTelegramId(long telegramUserId, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Запрос на получение пользователя по Telegram ID {TelegramUserId}", telegramUserId);
+        var result = await _userService.GetByTelegramIdAsync(telegramUserId, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return NotFound(new { error = result.Error });
+        }
+
+        return Ok(result.Data);
+    }
+
+    /// <summary>
+    /// Привязать Telegram аккаунт к пользователю
+    /// </summary>
+    [HttpPut("{userId:guid}/telegram-link")]
+    public async Task<ActionResult<UserDto>> LinkTelegram(Guid userId, [FromBody] LinkTelegramDto dto, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Запрос на привязку Telegram {TelegramUserId} к пользователю {UserId}", dto.TelegramUserId, userId);
+
+        // Проверка: только владелец аккаунта или админ может привязывать Telegram
+        var currentUserIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        var currentUserRoleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role);
+
+        if (currentUserIdClaim == null)
+        {
+            return Unauthorized(new { error = "User not authenticated" });
+        }
+
+        var currentUserId = Guid.Parse(currentUserIdClaim.Value);
+        var currentUserRole = currentUserRoleClaim?.Value;
+
+        if (currentUserId != userId && currentUserRole != "Admin")
+        {
+            _logger.LogWarning("User {CurrentUserId} tried to link Telegram for user {UserId}", currentUserId, userId);
+            return Forbid();
+        }
+
+        var result = await _userService.LinkTelegramAsync(userId, dto, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Data);
+    }
+
+    /// <summary>
+    /// Отвязать Telegram аккаунт от пользователя
+    /// </summary>
+    [HttpDelete("{userId:guid}/telegram-link")]
+    public async Task<ActionResult<UserDto>> UnlinkTelegram(Guid userId, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Запрос на отвязку Telegram от пользователя {UserId}", userId);
+
+        // Проверка: только владелец аккаунта или админ может отвязывать Telegram
+        var currentUserIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        var currentUserRoleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role);
+
+        if (currentUserIdClaim == null)
+        {
+            return Unauthorized(new { error = "User not authenticated" });
+        }
+
+        var currentUserId = Guid.Parse(currentUserIdClaim.Value);
+        var currentUserRole = currentUserRoleClaim?.Value;
+
+        if (currentUserId != userId && currentUserRole != "Admin")
+        {
+            _logger.LogWarning("User {CurrentUserId} tried to unlink Telegram for user {UserId}", currentUserId, userId);
+            return Forbid();
+        }
+
+        var result = await _userService.UnlinkTelegramAsync(userId, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Data);
+    }
 }
 

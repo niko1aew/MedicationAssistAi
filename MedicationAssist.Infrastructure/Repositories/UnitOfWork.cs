@@ -12,17 +12,20 @@ public class UnitOfWork : IUnitOfWork
     public IUserRepository Users { get; }
     public IMedicationRepository Medications { get; }
     public IMedicationIntakeRepository MedicationIntakes { get; }
+    public IReminderRepository Reminders { get; }
 
     public UnitOfWork(
         ApplicationDbContext context,
         IUserRepository userRepository,
         IMedicationRepository medicationRepository,
-        IMedicationIntakeRepository medicationIntakeRepository)
+        IMedicationIntakeRepository medicationIntakeRepository,
+        IReminderRepository reminderRepository)
     {
         _context = context;
         Users = userRepository;
         Medications = medicationRepository;
         MedicationIntakes = medicationIntakeRepository;
+        Reminders = reminderRepository;
     }
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

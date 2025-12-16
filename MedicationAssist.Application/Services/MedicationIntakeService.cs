@@ -25,17 +25,17 @@ public class MedicationIntakeService : IMedicationIntakeService
             var intake = await _unitOfWork.MedicationIntakes.GetByIdAsync(id, cancellationToken);
             if (intake == null)
             {
-                _logger.LogWarning("Запись о приеме лекарства с ID {IntakeId} не найдена", id);
-                return Result<MedicationIntakeDto>.Failure("Запись о приеме не найдена");
+                _logger.LogWarning("Medication intake record лекарства с ID {IntakeId} not found", id);
+                return Result<MedicationIntakeDto>.Failure("Medication intake record not found");
             }
 
             var medication = await _unitOfWork.Medications.GetByIdAsync(intake.MedicationId, cancellationToken);
-            return Result<MedicationIntakeDto>.Success(MapToDto(intake, medication?.Name ?? "Неизвестно"));
+            return Result<MedicationIntakeDto>.Success(MapToDto(intake, medication?.Name ?? "Unknown"));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении записи о приеме {IntakeId}", id);
-            return Result<MedicationIntakeDto>.Failure($"Ошибка при получении записи: {ex.Message}");
+            _logger.LogError(ex, "Error while getting record о приеме {IntakeId}", id);
+            return Result<MedicationIntakeDto>.Failure($"Error while getting record: {ex.Message}");
         }
     }
 
@@ -63,15 +63,15 @@ public class MedicationIntakeService : IMedicationIntakeService
             var medications = await _unitOfWork.Medications.GetByUserIdAsync(userId, cancellationToken);
             var medicationDict = medications.ToDictionary(m => m.Id, m => m.Name);
 
-            var intakeDtos = intakes.Select(i => MapToDto(i, medicationDict.GetValueOrDefault(i.MedicationId, "Неизвестно")));
+            var intakeDtos = intakes.Select(i => MapToDto(i, medicationDict.GetValueOrDefault(i.MedicationId, "Unknown")));
 
-            _logger.LogInformation("Получено {Count} записей о приеме для пользователя {UserId}", intakeDtos.Count(), userId);
+            _logger.LogInformation("Retrieved {Count} записей о intakes for user {UserId}", intakeDtos.Count(), userId);
             return Result<IEnumerable<MedicationIntakeDto>>.Success(intakeDtos);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении записей о приеме для пользователя {UserId}", userId);
-            return Result<IEnumerable<MedicationIntakeDto>>.Failure($"Ошибка при получении записей: {ex.Message}");
+            _logger.LogError(ex, "Error while получении записей о intakes for user {UserId}", userId);
+            return Result<IEnumerable<MedicationIntakeDto>>.Failure($"Error while получении записей: {ex.Message}");
         }
     }
 
@@ -85,21 +85,21 @@ public class MedicationIntakeService : IMedicationIntakeService
             var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
             if (user == null)
             {
-                _logger.LogWarning("Попытка создать запись для несуществующего пользователя {UserId}", userId);
+                _logger.LogWarning("Attempt создать запись для несуществующего пользователя {UserId}", userId);
                 return Result<MedicationIntakeDto>.Failure("Пользователь не найден");
             }
 
             var medication = await _unitOfWork.Medications.GetByIdAsync(dto.MedicationId, cancellationToken);
             if (medication == null)
             {
-                _logger.LogWarning("Попытка создать запись для несуществующего лекарства {MedicationId}", dto.MedicationId);
+                _logger.LogWarning("Attempt создать запись для несуществующего лекарства {MedicationId}", dto.MedicationId);
                 return Result<MedicationIntakeDto>.Failure("Лекарство не найдено");
             }
 
             if (medication.UserId != userId)
             {
-                _logger.LogWarning("Попытка создать запись для лекарства {MedicationId} другого пользователя", dto.MedicationId);
-                return Result<MedicationIntakeDto>.Failure("Лекарство принадлежит другому пользователю");
+                _logger.LogWarning("Attempt создать запись для лекарства {MedicationId} другого пользователя", dto.MedicationId);
+                return Result<MedicationIntakeDto>.Failure("Лекарство belongs to another user");
             }
 
             var intakeTime = dto.IntakeTime ?? DateTime.UtcNow;
@@ -108,18 +108,18 @@ public class MedicationIntakeService : IMedicationIntakeService
             await _unitOfWork.MedicationIntakes.AddAsync(intake, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Создана новая запись о приеме {IntakeId} для пользователя {UserId}", intake.Id, userId);
+            _logger.LogInformation("Created новая запись о приеме {IntakeId} для пользователя {UserId}", intake.Id, userId);
             return Result<MedicationIntakeDto>.Success(MapToDto(intake, medication.Name));
         }
         catch (DomainException ex)
         {
-            _logger.LogWarning(ex, "Ошибка валидации при создании записи о приеме для пользователя {UserId}", userId);
+            _logger.LogWarning(ex, "Validation error при creating record о intakes for user {UserId}", userId);
             return Result<MedicationIntakeDto>.Failure(ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при создании записи о приеме для пользователя {UserId}", userId);
-            return Result<MedicationIntakeDto>.Failure($"Ошибка при создании записи: {ex.Message}");
+            _logger.LogError(ex, "Error while creating record о intakes for user {UserId}", userId);
+            return Result<MedicationIntakeDto>.Failure($"Error while creating record: {ex.Message}");
         }
     }
 
@@ -133,8 +133,8 @@ public class MedicationIntakeService : IMedicationIntakeService
             var intake = await _unitOfWork.MedicationIntakes.GetByIdAsync(id, cancellationToken);
             if (intake == null)
             {
-                _logger.LogWarning("Попытка обновить несуществующую запись {IntakeId}", id);
-                return Result<MedicationIntakeDto>.Failure("Запись о приеме не найдена");
+                _logger.LogWarning("Attempt обновить несуществующую запись {IntakeId}", id);
+                return Result<MedicationIntakeDto>.Failure("Medication intake record not found");
             }
 
             intake.SetIntakeTime(dto.IntakeTime);
@@ -145,18 +145,18 @@ public class MedicationIntakeService : IMedicationIntakeService
 
             var medication = await _unitOfWork.Medications.GetByIdAsync(intake.MedicationId, cancellationToken);
 
-            _logger.LogInformation("Обновлена запись о приеме {IntakeId}", id);
-            return Result<MedicationIntakeDto>.Success(MapToDto(intake, medication?.Name ?? "Неизвестно"));
+            _logger.LogInformation("Updated запись о приеме {IntakeId}", id);
+            return Result<MedicationIntakeDto>.Success(MapToDto(intake, medication?.Name ?? "Unknown"));
         }
         catch (DomainException ex)
         {
-            _logger.LogWarning(ex, "Ошибка валидации при обновлении записи {IntakeId}", id);
+            _logger.LogWarning(ex, "Validation error при updating record {IntakeId}", id);
             return Result<MedicationIntakeDto>.Failure(ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при обновлении записи {IntakeId}", id);
-            return Result<MedicationIntakeDto>.Failure($"Ошибка при обновлении записи: {ex.Message}");
+            _logger.LogError(ex, "Error while updating record {IntakeId}", id);
+            return Result<MedicationIntakeDto>.Failure($"Error while updating record: {ex.Message}");
         }
     }
 
@@ -167,20 +167,20 @@ public class MedicationIntakeService : IMedicationIntakeService
             var exists = await _unitOfWork.MedicationIntakes.ExistsAsync(id, cancellationToken);
             if (!exists)
             {
-                _logger.LogWarning("Попытка удалить несуществующую запись {IntakeId}", id);
-                return Result.Failure("Запись о приеме не найдена");
+                _logger.LogWarning("Attempt удалить несуществующую запись {IntakeId}", id);
+                return Result.Failure("Medication intake record not found");
             }
 
             await _unitOfWork.MedicationIntakes.DeleteAsync(id, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Удалена запись о приеме {IntakeId}", id);
+            _logger.LogInformation("Deleted запись о приеме {IntakeId}", id);
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при удалении записи {IntakeId}", id);
-            return Result.Failure($"Ошибка при удалении записи: {ex.Message}");
+            _logger.LogError(ex, "Error while deleting record {IntakeId}", id);
+            return Result.Failure($"Error while deleting record: {ex.Message}");
         }
     }
 

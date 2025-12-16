@@ -27,7 +27,7 @@ public class MedicationIntake : Entity
     public void SetIntakeTime(DateTime intakeTime)
     {
         if (intakeTime > DateTime.UtcNow.AddDays(1))
-            throw new DomainException("Время приема не может быть более чем через день");
+            throw new DomainException("Intake time cannot be more than one day in the future");
 
         IntakeTime = intakeTime;
         MarkAsUpdated();
@@ -36,7 +36,7 @@ public class MedicationIntake : Entity
     public void SetNotes(string? notes)
     {
         if (notes?.Length > 500)
-            throw new DomainException("Примечания не могут превышать 500 символов");
+            throw new DomainException("Notes cannot exceed 500 characters");
 
         Notes = notes;
         MarkAsUpdated();

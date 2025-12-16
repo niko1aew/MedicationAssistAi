@@ -2,16 +2,14 @@ using System.Text;
 using System.Threading.RateLimiting;
 using MedicationAssist.Application;
 using MedicationAssist.Infrastructure;
-using MedicationAssist.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Настройка Serilog
+// Serilog configuration
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
@@ -27,23 +25,23 @@ builder.Host.UseSerilog();
 
 try
 {
-    Log.Information("Запуск приложения MedicationAssist");
+    Log.Information("Starting MedicationAssist application");
 
-    // Добавление сервисов
+    // Add services
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
     
-    // Настройка Swagger/OpenAPI с JWT авторизацией
+    // Configure Swagger/OpenAPI with JWT auth
     builder.Services.AddSwaggerGen(options =>
     {
         options.SwaggerDoc("v1", new OpenApiInfo
         {
             Title = "MedicationAssist API",
             Version = "v1",
-            Description = "API для управления лекарствами и расписанием приёма"
+            Description = "API for managing medications and intake schedule"
         });
 
-        // Настройка JWT Bearer авторизации
+        // JWT Bearer auth configuration
         options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
         {
             Name = "Authorization",
@@ -51,7 +49,7 @@ try
             Scheme = "Bearer",
             BearerFormat = "JWT",
             In = ParameterLocation.Header,
-            Description = "Введите JWT токен.\n\nПример: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            Description = "Enter JWT token.\n\nExample: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
         });
 
         options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -70,13 +68,13 @@ try
         });
     });
 
-    // Настройка JWT Authentication
+    // JWT Authentication configuration
     var jwtSecret = builder.Configuration["JwtSettings:Secret"];
     if (string.IsNullOrEmpty(jwtSecret))
     {
         throw new InvalidOperationException(
-            "JWT Secret не найден в конфигурации. " +
-            "Установите переменную окружения JwtSettings__Secret или настройте appsettings.json");
+            "JWT Secret not found in configuration. " +
+            "Set environment variable JwtSettings__Secret or configure appsettings.json");
     }
     var jwtIssuer = builder.Configuration["JwtSettings:Issuer"];
     var jwtAudience = builder.Configuration["JwtSettings:Audience"];
@@ -103,7 +101,7 @@ try
 
     builder.Services.AddAuthorization();
 
-    // Настройка Rate Limiting
+    // Rate Limiting configuration
     builder.Services.AddRateLimiter(options =>
     {
         options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
@@ -119,11 +117,11 @@ try
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     });
 
-    // Регистрация слоев приложения
+    // Application layers registration
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
 
-    // Настройка CORS
+    // CORS configuration
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("AllowAll", policy =>
@@ -136,22 +134,7 @@ try
 
     var app = builder.Build();
 
-    // Автоматическое применение миграций при запуске (опционально)
-    using (var scope = app.Services.CreateScope())
-    {
-        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        try
-        {
-            dbContext.Database.Migrate();
-            Log.Information("Миграции базы данных применены успешно");
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Не удалось применить миграции. База данных может быть недоступна");
-        }
-    }
-
-    // Настройка HTTP pipeline
+    // HTTP pipeline configuration
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
@@ -178,11 +161,11 @@ try
 
     app.Run();
 
-    Log.Information("Приложение успешно запущено");
+    Log.Information("MedicationAssist application started successfully");
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Приложение завершилось с ошибкой");
+    Log.Fatal(ex, "MedicationAssist application terminated with a fatal error");
     throw;
 }
 finally

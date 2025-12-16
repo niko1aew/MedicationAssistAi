@@ -36,25 +36,25 @@ public class AuthService : IAuthService
 
     public async Task<Result<AuthResponseDto>> RegisterAsync(RegisterDto dto)
     {
-        _logger.LogInformation("Попытка регистрации пользователя с email {Email}", dto.Email);
+        _logger.LogInformation("Attempting to register user with email {Email}", dto.Email);
 
         // Проверка существования пользователя
         var existingUser = await _userRepository.GetByEmailAsync(dto.Email);
         if (existingUser != null)
         {
-            _logger.LogWarning("Попытка регистрации с существующим email {Email}", dto.Email);
-            return Result<AuthResponseDto>.Failure("Пользователь с таким email уже существует");
+            _logger.LogWarning("Attempt to register with existing email {Email}", dto.Email);
+            return Result<AuthResponseDto>.Failure("User with this email already exists");
         }
 
         // Валидация пароля
         if (string.IsNullOrWhiteSpace(dto.Password))
-            return Result<AuthResponseDto>.Failure("Пароль не может быть пустым");
+            return Result<AuthResponseDto>.Failure("Password cannot be empty");
 
         if (dto.Password.Length < 6)
-            return Result<AuthResponseDto>.Failure("Пароль должен содержать минимум 6 символов");
+            return Result<AuthResponseDto>.Failure("Password must contain at least 6 characters");
 
         if (dto.Password.Length > 100)
-            return Result<AuthResponseDto>.Failure("Пароль не может превышать 100 символов");
+            return Result<AuthResponseDto>.Failure("Password cannot exceed 100 characters");
 
         try
         {
@@ -69,67 +69,67 @@ public class AuthService : IAuthService
 
             // Генерация токенов
             var tokens = _jwtTokenService.GenerateTokens(user);
-            
+
             // Сохранение refresh токена
             await _refreshTokenService.CreateTokenAsync(
-                user.Id, 
-                tokens.RefreshToken, 
+                user.Id,
+                tokens.RefreshToken,
                 tokens.RefreshTokenExpires);
 
-            _logger.LogInformation("Пользователь {UserId} с email {Email} успешно зарегистрирован", user.Id, user.Email);
+            _logger.LogInformation("User {UserId} with email {Email} successfully registered", user.Id, user.Email);
 
             var response = new AuthResponseDto
             {
                 Token = tokens.AccessToken,
                 RefreshToken = tokens.RefreshToken,
                 TokenExpires = tokens.AccessTokenExpires,
-                User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.CreatedAt, user.UpdatedAt)
+                User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.CreatedAt, user.UpdatedAt)
             };
 
             return Result<AuthResponseDto>.Success(response);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при регистрации пользователя");
-            return Result<AuthResponseDto>.Failure($"Ошибка регистрации: {ex.Message}");
+            _logger.LogError(ex, "Error while registering user");
+            return Result<AuthResponseDto>.Failure($"Registration error: {ex.Message}");
         }
     }
 
     public async Task<Result<AuthResponseDto>> LoginAsync(LoginDto dto)
     {
-        _logger.LogInformation("Попытка входа пользователя с email {Email}", dto.Email);
+        _logger.LogInformation("Attempting to login user with email {Email}", dto.Email);
 
         var user = await _userRepository.GetByEmailAsync(dto.Email);
         if (user == null)
         {
-            _logger.LogWarning("Попытка входа с несуществующим email {Email}", dto.Email);
-            return Result<AuthResponseDto>.Failure("Неверный email или пароль");
+            _logger.LogWarning("Attempt to login with non-existent email {Email}", dto.Email);
+            return Result<AuthResponseDto>.Failure("Invalid email or password");
         }
 
         // Проверка пароля
         if (!_passwordHasher.VerifyPassword(dto.Password, user.PasswordHash))
         {
-            _logger.LogWarning("Неверный пароль для пользователя {Email}", dto.Email);
-            return Result<AuthResponseDto>.Failure("Неверный email или пароль");
+            _logger.LogWarning("Invalid password for user {Email}", dto.Email);
+            return Result<AuthResponseDto>.Failure("Invalid email or password");
         }
 
         // Генерация токенов
         var tokens = _jwtTokenService.GenerateTokens(user);
-        
+
         // Сохранение refresh токена
         await _refreshTokenService.CreateTokenAsync(
-            user.Id, 
-            tokens.RefreshToken, 
+            user.Id,
+            tokens.RefreshToken,
             tokens.RefreshTokenExpires);
 
-        _logger.LogInformation("Пользователь {UserId} успешно вошел в систему", user.Id);
+        _logger.LogInformation("User {UserId} successfully logged in", user.Id);
 
         var response = new AuthResponseDto
         {
             Token = tokens.AccessToken,
             RefreshToken = tokens.RefreshToken,
             TokenExpires = tokens.AccessTokenExpires,
-            User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.CreatedAt, user.UpdatedAt)
+            User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.CreatedAt, user.UpdatedAt)
         };
 
         return Result<AuthResponseDto>.Success(response);
@@ -137,33 +137,33 @@ public class AuthService : IAuthService
 
     public async Task<Result<AuthResponseDto>> RefreshTokenAsync(string refreshToken)
     {
-        _logger.LogInformation("Попытка обновления токена");
+        _logger.LogInformation("Attempting to refresh token");
 
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
-            return Result<AuthResponseDto>.Failure("Refresh токен не указан");
+            return Result<AuthResponseDto>.Failure("Refresh token is not specified");
         }
 
         // Получаем существующий токен
         var existingToken = await _refreshTokenService.GetByTokenAsync(refreshToken);
         if (existingToken == null)
         {
-            _logger.LogWarning("Refresh токен не найден");
-            return Result<AuthResponseDto>.Failure("Недействительный refresh токен");
+            _logger.LogWarning("Refresh token not found");
+            return Result<AuthResponseDto>.Failure("Invalid refresh token");
         }
 
         if (!existingToken.IsActive)
         {
-            _logger.LogWarning("Попытка использования неактивного refresh токена для пользователя {UserId}", existingToken.UserId);
-            return Result<AuthResponseDto>.Failure("Refresh токен истёк или был отозван");
+            _logger.LogWarning("Attempt to use inactive refresh token for user {UserId}", existingToken.UserId);
+            return Result<AuthResponseDto>.Failure("Refresh token has expired or been revoked");
         }
 
         // Получаем пользователя
         var user = await _userRepository.GetByIdAsync(existingToken.UserId);
         if (user == null)
         {
-            _logger.LogWarning("Пользователь {UserId} не найден при обновлении токена", existingToken.UserId);
-            return Result<AuthResponseDto>.Failure("Пользователь не найден");
+            _logger.LogWarning("User {UserId} not found while refreshing token", existingToken.UserId);
+            return Result<AuthResponseDto>.Failure("User not found");
         }
 
         // Генерируем новые токены
@@ -176,14 +176,14 @@ public class AuthService : IAuthService
             tokens.RefreshToken,
             tokens.RefreshTokenExpires);
 
-        _logger.LogInformation("Токены успешно обновлены для пользователя {UserId}", user.Id);
+        _logger.LogInformation("Tokens successfully refreshed for user {UserId}", user.Id);
 
         var response = new AuthResponseDto
         {
             Token = tokens.AccessToken,
             RefreshToken = tokens.RefreshToken,
             TokenExpires = tokens.AccessTokenExpires,
-            User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.CreatedAt, user.UpdatedAt)
+            User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.CreatedAt, user.UpdatedAt)
         };
 
         return Result<AuthResponseDto>.Success(response);
@@ -191,45 +191,45 @@ public class AuthService : IAuthService
 
     public async Task<Result> RevokeTokenAsync(string refreshToken)
     {
-        _logger.LogInformation("Попытка отзыва refresh токена");
+        _logger.LogInformation("Attempting to revoke refresh token");
 
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
-            return Result.Failure("Refresh токен не указан");
+            return Result.Failure("Refresh token is not specified");
         }
 
         var existingToken = await _refreshTokenService.GetByTokenAsync(refreshToken);
         if (existingToken == null)
         {
-            return Result.Failure("Refresh токен не найден");
+            return Result.Failure("Refresh token not found");
         }
 
         if (!existingToken.IsActive)
         {
-            return Result.Failure("Токен уже отозван или истёк");
+            return Result.Failure("Token has already been revoked or expired");
         }
 
         await _refreshTokenService.RevokeTokenAsync(refreshToken);
-        
-        _logger.LogInformation("Refresh токен успешно отозван для пользователя {UserId}", existingToken.UserId);
-        
+
+        _logger.LogInformation("Refresh token successfully revoked for user {UserId}", existingToken.UserId);
+
         return Result.Success();
     }
 
     public async Task<Result> RevokeAllTokensAsync(Guid userId)
     {
-        _logger.LogInformation("Попытка отзыва всех токенов для пользователя {UserId}", userId);
+        _logger.LogInformation("Attempting to revoke all tokens for user {UserId}", userId);
 
         var user = await _userRepository.GetByIdAsync(userId);
         if (user == null)
         {
-            return Result.Failure("Пользователь не найден");
+            return Result.Failure("User not found");
         }
 
         await _refreshTokenService.RevokeAllUserTokensAsync(userId);
-        
-        _logger.LogInformation("Все refresh токены отозваны для пользователя {UserId}", userId);
-        
+
+        _logger.LogInformation("All refresh tokens revoked for user {UserId}", userId);
+
         return Result.Success();
     }
 }
