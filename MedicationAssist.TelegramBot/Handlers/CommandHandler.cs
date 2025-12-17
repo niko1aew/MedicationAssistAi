@@ -17,6 +17,7 @@ public class CommandHandler
     private readonly MedicationHandler _medicationHandler;
     private readonly IntakeHandler _intakeHandler;
     private readonly ReminderHandler _reminderHandler;
+    private readonly SettingsHandler _settingsHandler;
     private readonly ILogger<CommandHandler> _logger;
 
     public CommandHandler(
@@ -26,6 +27,7 @@ public class CommandHandler
         MedicationHandler medicationHandler,
         IntakeHandler intakeHandler,
         ReminderHandler reminderHandler,
+        SettingsHandler settingsHandler,
         ILogger<CommandHandler> logger)
     {
         _botClient = botClient;
@@ -34,6 +36,7 @@ public class CommandHandler
         _medicationHandler = medicationHandler;
         _intakeHandler = intakeHandler;
         _reminderHandler = reminderHandler;
+        _settingsHandler = settingsHandler;
         _logger = logger;
     }
 
@@ -110,6 +113,11 @@ public class CommandHandler
             case "/reminders":
                 if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
                 await _reminderHandler.ShowRemindersMenuAsync(chatId, ct);
+                break;
+
+            case "/settings":
+                if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
+                await _settingsHandler.ShowSettingsAsync(chatId, userId, ct);
                 break;
 
             case "/logout":

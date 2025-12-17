@@ -17,6 +17,7 @@ public class User : Entity
     public UserRole Role { get; private set; }
     public long? TelegramUserId { get; private set; }
     public string? TelegramUsername { get; private set; }
+    public string TimeZoneId { get; private set; }
 
     public IReadOnlyCollection<Medication> Medications => _medications.AsReadOnly();
     public IReadOnlyCollection<MedicationIntake> MedicationIntakes => _medicationIntakes.AsReadOnly();
@@ -28,14 +29,21 @@ public class User : Entity
         Email = string.Empty;
         PasswordHash = string.Empty;
         Role = UserRole.User;
+        TimeZoneId = "Europe/Moscow"; // Default timezone for Russia (UTC+3)
     }
 
-    public User(string name, string email, string passwordHash, UserRole role = UserRole.User) : base()
+    public User(string name, string email, string passwordHash, UserRole role = UserRole.User, string? timeZoneId = null) : base()
     {
+        Name = string.Empty;
+        Email = string.Empty;
+        PasswordHash = string.Empty;
+        TimeZoneId = string.Empty;
+
         SetName(name);
         SetEmail(email);
         SetPasswordHash(passwordHash);
         Role = role;
+        SetTimeZone(timeZoneId ?? "Europe/Moscow");
     }
 
     public void SetName(string name)
@@ -94,6 +102,25 @@ public class User : Entity
     {
         TelegramUserId = null;
         TelegramUsername = null;
+        MarkAsUpdated();
+    }
+
+    public void SetTimeZone(string timeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId))
+            throw new DomainException("Time zone ID cannot be empty");
+
+        // Validate timezone ID
+        try
+        {
+            TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            throw new DomainException($"Invalid time zone ID: {timeZoneId}");
+        }
+
+        TimeZoneId = timeZoneId;
         MarkAsUpdated();
     }
 

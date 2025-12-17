@@ -9,6 +9,7 @@ public record UserDto(
     UserRole Role,
     long? TelegramUserId,
     string? TelegramUsername,
+    string TimeZoneId,
     DateTime CreatedAt,
     DateTime? UpdatedAt
 );

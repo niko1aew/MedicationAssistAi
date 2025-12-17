@@ -37,15 +37,16 @@ public static class ServiceCollectionExtensions
         // Регистрация сервисов
         services.AddSingleton<UserSessionService>();
         services.AddSingleton<ReminderService>();
-        
+
         // Регистрация обработчиков
         services.AddScoped<CommandHandler>();
         services.AddScoped<AuthHandler>();
         services.AddScoped<MedicationHandler>();
         services.AddScoped<IntakeHandler>();
         services.AddScoped<ReminderHandler>();
+        services.AddScoped<SettingsHandler>();
         services.AddScoped<CallbackQueryHandler>();
-        
+
         // Регистрация основного сервиса бота
         services.AddHostedService<TelegramBotService>();
         services.AddHostedService(sp => sp.GetRequiredService<ReminderService>());

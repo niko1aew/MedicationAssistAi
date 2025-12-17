@@ -40,7 +40,7 @@ public class MedicationIntakeService : IMedicationIntakeService
     }
 
     public async Task<Result<IEnumerable<MedicationIntakeDto>>> GetByUserIdAsync(
-        Guid userId, 
+        Guid userId,
         MedicationIntakeFilterDto? filter = null,
         CancellationToken cancellationToken = default)
     {
@@ -76,8 +76,8 @@ public class MedicationIntakeService : IMedicationIntakeService
     }
 
     public async Task<Result<MedicationIntakeDto>> CreateAsync(
-        Guid userId, 
-        CreateMedicationIntakeDto dto, 
+        Guid userId,
+        CreateMedicationIntakeDto dto,
         CancellationToken cancellationToken = default)
     {
         try
@@ -102,7 +102,28 @@ public class MedicationIntakeService : IMedicationIntakeService
                 return Result<MedicationIntakeDto>.Failure("Лекарство belongs to another user");
             }
 
-            var intakeTime = dto.IntakeTime ?? DateTime.UtcNow;
+            // Если время не указано, используем текущее время в часовом поясе пользователя
+            DateTime intakeTime;
+            if (dto.IntakeTime.HasValue)
+            {
+                // Клиент передает локальное время, конвертируем в UTC
+                try
+                {
+                    var userTimeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId);
+                    intakeTime = TimeZoneInfo.ConvertTimeToUtc(dto.IntakeTime.Value, userTimeZone);
+                }
+                catch (TimeZoneNotFoundException)
+                {
+                    _logger.LogWarning("Invalid timezone {TimeZoneId} for user {UserId}, treating as UTC",
+                        user.TimeZoneId, userId);
+                    intakeTime = dto.IntakeTime.Value.ToUniversalTime();
+                }
+            }
+            else
+            {
+                intakeTime = DateTime.UtcNow;
+            }
+
             var intake = new MedicationIntake(userId, dto.MedicationId, intakeTime, dto.Notes);
 
             await _unitOfWork.MedicationIntakes.AddAsync(intake, cancellationToken);
@@ -124,8 +145,8 @@ public class MedicationIntakeService : IMedicationIntakeService
     }
 
     public async Task<Result<MedicationIntakeDto>> UpdateAsync(
-        Guid id, 
-        UpdateMedicationIntakeDto dto, 
+        Guid id,
+        UpdateMedicationIntakeDto dto,
         CancellationToken cancellationToken = default)
     {
         try

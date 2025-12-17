@@ -62,7 +62,7 @@ public class AuthService : IAuthService
             var passwordHash = _passwordHasher.HashPassword(dto.Password);
 
             // Создание пользователя
-            var user = new User(dto.Name, dto.Email, passwordHash, UserRole.User);
+            var user = new User(dto.Name, dto.Email, passwordHash, UserRole.User, dto.TimeZoneId);
 
             await _userRepository.AddAsync(user);
             await _unitOfWork.SaveChangesAsync();
@@ -83,7 +83,7 @@ public class AuthService : IAuthService
                 Token = tokens.AccessToken,
                 RefreshToken = tokens.RefreshToken,
                 TokenExpires = tokens.AccessTokenExpires,
-                User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.CreatedAt, user.UpdatedAt)
+                User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.TimeZoneId, user.CreatedAt, user.UpdatedAt)
             };
 
             return Result<AuthResponseDto>.Success(response);
@@ -129,7 +129,7 @@ public class AuthService : IAuthService
             Token = tokens.AccessToken,
             RefreshToken = tokens.RefreshToken,
             TokenExpires = tokens.AccessTokenExpires,
-            User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.CreatedAt, user.UpdatedAt)
+            User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.TimeZoneId, user.CreatedAt, user.UpdatedAt)
         };
 
         return Result<AuthResponseDto>.Success(response);
@@ -183,7 +183,7 @@ public class AuthService : IAuthService
             Token = tokens.AccessToken,
             RefreshToken = tokens.RefreshToken,
             TokenExpires = tokens.AccessTokenExpires,
-            User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.CreatedAt, user.UpdatedAt)
+            User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.TimeZoneId, user.CreatedAt, user.UpdatedAt)
         };
 
         return Result<AuthResponseDto>.Success(response);

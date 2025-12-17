@@ -13,6 +13,7 @@ public interface IUserService
     Task<Result<UserDto>> UpdateAsync(Guid id, UpdateUserDto dto, CancellationToken cancellationToken = default);
     Task<Result<UserDto>> LinkTelegramAsync(Guid userId, LinkTelegramDto dto, CancellationToken cancellationToken = default);
     Task<Result<UserDto>> UnlinkTelegramAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<Result<UserDto>> SetTimeZoneAsync(Guid userId, string timeZoneId, CancellationToken cancellationToken = default);
     Task<Result> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }
 

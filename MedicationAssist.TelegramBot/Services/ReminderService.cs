@@ -34,7 +34,7 @@ public class ReminderService : BackgroundService
         _logger.LogInformation("Reminder service started");
 
         var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
-        
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -120,10 +120,9 @@ public class ReminderService : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var reminderService = scope.ServiceProvider.GetRequiredService<IReminderService>();
+        var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
 
-        var nowLocal = DateTime.Now;
-        var currentTime = TimeOnly.FromDateTime(nowLocal);
-        var today = DateOnly.FromDateTime(nowLocal);
+        var nowUtc = DateTime.UtcNow;
 
         var remindersResult = await reminderService.GetActiveAsync(ct);
         if (!remindersResult.IsSuccess || remindersResult.Data == null)
@@ -131,14 +130,39 @@ public class ReminderService : BackgroundService
 
         foreach (var reminder in remindersResult.Data)
         {
+            // Получаем пользователя для определения его часового пояса
+            var userResult = await userService.GetByIdAsync(reminder.UserId, ct);
+            if (!userResult.IsSuccess || userResult.Data == null)
+                continue;
+
+            // Конвертируем текущее UTC время в часовой пояс пользователя
+            TimeZoneInfo userTimeZone;
+            try
+            {
+                userTimeZone = TimeZoneInfo.FindSystemTimeZoneById(userResult.Data.TimeZoneId);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                _logger.LogWarning("Invalid timezone {TimeZoneId} for user {UserId}, using UTC",
+                    userResult.Data.TimeZoneId, reminder.UserId);
+                userTimeZone = TimeZoneInfo.Utc;
+            }
+
+            var userLocalTime = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, userTimeZone);
+            var currentTime = TimeOnly.FromDateTime(userLocalTime);
+            var today = DateOnly.FromDateTime(userLocalTime);
+
+            // Проверяем, совпадает ли текущее время с временем напоминания (с точностью до 1 минуты)
             var timeDiff = Math.Abs((currentTime.ToTimeSpan() - reminder.Time.ToTimeSpan()).TotalMinutes);
-            
+
             if (timeDiff > 1)
                 continue;
 
+            // Проверяем, не отправляли ли уже сегодня
             if (reminder.LastSentAt.HasValue)
             {
-                var lastSentDate = DateOnly.FromDateTime(reminder.LastSentAt.Value.ToLocalTime());
+                var lastSentInUserTz = TimeZoneInfo.ConvertTimeFromUtc(reminder.LastSentAt.Value, userTimeZone);
+                var lastSentDate = DateOnly.FromDateTime(lastSentInUserTz);
                 if (lastSentDate == today)
                     continue;
             }
@@ -151,8 +175,8 @@ public class ReminderService : BackgroundService
     {
         try
         {
-            var dosageText = string.IsNullOrEmpty(reminder.Dosage) 
-                ? Messages.NotSpecified 
+            var dosageText = string.IsNullOrEmpty(reminder.Dosage)
+                ? Messages.NotSpecified
                 : reminder.Dosage;
 
             var message = string.Format(
@@ -185,13 +209,13 @@ public class ReminderService : BackgroundService
     public static bool TryParseTime(string input, out TimeOnly time)
     {
         time = default;
-        
+
         if (string.IsNullOrWhiteSpace(input))
             return false;
 
         // Пробуем разные форматы
         var formats = new[] { "HH:mm", "H:mm", "HH.mm", "H.mm" };
-        
+
         foreach (var format in formats)
         {
             if (TimeOnly.TryParseExact(input.Trim(), format, out time))

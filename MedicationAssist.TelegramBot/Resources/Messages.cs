@@ -99,6 +99,13 @@ public static class Messages
     public const string Loading = "⏳ Загрузка...";
     public const string ProcessingRequest = "⏳ Обрабатываю запрос...";
 
+    // Настройки
+    public const string Settings = "⚙️ Настройки:\n\n{0}";
+    public const string CurrentTimeZone = "🌍 Часовой пояс: {0}\n⏰ Текущее время: {1}";
+    public const string SelectTimeZone = "🌍 Выберите ваш часовой пояс:";
+    public const string TimeZoneUpdated = "✅ Часовой пояс обновлён на {0}!";
+    public const string InvalidTimeZone = "❌ Некорректный часовой пояс. Попробуйте снова.";
+
     // Форматирование дат
     public const string DateFormat = "dd.MM.yyyy";
     public const string TimeFormat = "HH:mm";

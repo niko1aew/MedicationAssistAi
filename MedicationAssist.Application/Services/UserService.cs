@@ -236,6 +236,37 @@ public class UserService : IUserService
         }
     }
 
+    public async Task<Result<UserDto>> SetTimeZoneAsync(Guid userId, string timeZoneId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+            if (user == null)
+            {
+                _logger.LogWarning("User {UserId} not found", userId);
+                return Result<UserDto>.Failure("User not found");
+            }
+
+            user.SetTimeZone(timeZoneId);
+
+            await _unitOfWork.Users.UpdateAsync(user, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Timezone updated for user {UserId} to {TimeZoneId}", userId, timeZoneId);
+            return Result<UserDto>.Success(MapToDto(user));
+        }
+        catch (DomainException ex)
+        {
+            _logger.LogWarning(ex, "Validation error while setting timezone for user {UserId}", userId);
+            return Result<UserDto>.Failure(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while setting timezone for user {UserId}", userId);
+            return Result<UserDto>.Failure($"Error while setting timezone: {ex.Message}");
+        }
+    }
+
     public async Task<Result> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         try
@@ -269,6 +300,7 @@ public class UserService : IUserService
             user.Role,
             user.TelegramUserId,
             user.TelegramUsername,
+            user.TimeZoneId,
             user.CreatedAt,
             user.UpdatedAt
         );
