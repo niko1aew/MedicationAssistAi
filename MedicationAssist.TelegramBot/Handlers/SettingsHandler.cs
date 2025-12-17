@@ -69,7 +69,18 @@ public class SettingsHandler
         var user = userResult.Data;
 
         // Получаем текущее время пользователя
-        var userTimeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId);
+        TimeZoneInfo userTimeZone;
+        try
+        {
+            userTimeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            _logger.LogWarning("Invalid timezone {TimeZoneId} for user {UserId}, using UTC",
+                user.TimeZoneId, user.Id);
+            userTimeZone = TimeZoneInfo.Utc;
+        }
+
         var userLocalTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, userTimeZone);
 
         var settingsText = string.Format(Messages.Settings,

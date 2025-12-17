@@ -41,6 +41,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired(false)
             .HasMaxLength(255);
 
+        builder.Property(u => u.TimeZoneId)
+            .IsRequired()
+            .HasDefaultValue("Europe/Moscow");
+
         builder.Property(u => u.CreatedAt)
             .IsRequired();
 
