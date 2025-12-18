@@ -377,11 +377,19 @@ public class ReminderService : BackgroundService
     /// <summary>
     /// Обработать подтверждение приёма лекарства из напоминания
     /// </summary>
-    public async Task<bool> HandleReminderTakenAsync(Guid reminderId, Guid medicationId, long telegramUserId, CancellationToken ct)
+    public async Task<bool> HandleReminderTakenAsync(Guid reminderId, long telegramUserId, CancellationToken ct)
     {
         var session = _sessionService.GetSession(telegramUserId);
         if (session?.UserId == null)
             return false;
+
+        // Получаем информацию о напоминании из трекера
+        var pendingInfo = _pendingTracker.Get(reminderId);
+        if (pendingInfo == null)
+        {
+            _logger.LogWarning("Pending reminder info not found for {ReminderId}", reminderId);
+            return false;
+        }
 
         using var scope = _scopeFactory.CreateScope();
         var intakeService = scope.ServiceProvider.GetRequiredService<IMedicationIntakeService>();
@@ -390,7 +398,7 @@ public class ReminderService : BackgroundService
         // Записываем приём лекарства с текущим временем
         var result = await intakeService.CreateAsync(
             session.UserId.Value,
-            new CreateMedicationIntakeDto(medicationId, DateTime.UtcNow, null),
+            new CreateMedicationIntakeDto(pendingInfo.MedicationId, DateTime.UtcNow, null),
             ct);
 
         if (result.IsSuccess)

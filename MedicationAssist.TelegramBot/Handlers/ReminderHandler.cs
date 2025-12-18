@@ -390,9 +390,9 @@ public class ReminderHandler
     /// <summary>
     /// Обработать подтверждение приёма лекарства из напоминания
     /// </summary>
-    public async Task<bool> HandleReminderTakenAsync(Guid reminderId, Guid medicationId, long telegramUserId, CancellationToken ct)
+    public async Task<bool> HandleReminderTakenAsync(Guid reminderId, long telegramUserId, CancellationToken ct)
     {
-        return await _reminderService.HandleReminderTakenAsync(reminderId, medicationId, telegramUserId, ct);
+        return await _reminderService.HandleReminderTakenAsync(reminderId, telegramUserId, ct);
     }
 
     /// <summary>

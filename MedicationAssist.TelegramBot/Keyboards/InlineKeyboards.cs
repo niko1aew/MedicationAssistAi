@@ -159,7 +159,7 @@ public static class InlineKeyboards
     {
         new[]
         {
-            InlineKeyboardButton.WithCallbackData("✅ Принять", $"take_reminder:{reminderId}:{medicationId}"),
+            InlineKeyboardButton.WithCallbackData("✅ Принять", $"take_reminder:{reminderId}"),
             InlineKeyboardButton.WithCallbackData("⏭️ Пропустить", $"skip_reminder:{reminderId}")
         }
     });

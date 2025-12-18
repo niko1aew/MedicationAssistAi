@@ -320,17 +320,16 @@ public class CallbackQueryHandler
 
     private async Task HandleTakeReminderAsync(long chatId, long userId, string[] parts, int messageId, CancellationToken ct)
     {
-        // Формат: take_reminder:reminderId:medicationId
-        if (parts.Length < 3 ||
-            !Guid.TryParse(parts[1], out var reminderId) ||
-            !Guid.TryParse(parts[2], out var medicationId))
+        // Формат: take_reminder:reminderId
+        if (parts.Length < 2 ||
+            !Guid.TryParse(parts[1], out var reminderId))
         {
             _logger.LogWarning("Invalid take_reminder callback format: {Parts}", string.Join(":", parts));
             return;
         }
 
         var medicationName = await _reminderHandler.GetMedicationNameAsync(reminderId, ct);
-        var success = await _reminderHandler.HandleReminderTakenAsync(reminderId, medicationId, userId, ct);
+        var success = await _reminderHandler.HandleReminderTakenAsync(reminderId, userId, ct);
 
         if (success)
         {
