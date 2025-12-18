@@ -31,6 +31,18 @@ public class ReminderConfiguration : IEntityTypeConfiguration<Reminder>
         builder.Property(r => r.LastSentAt)
             .HasColumnType("timestamp with time zone");
 
+        // Pending fields
+        builder.Property(r => r.PendingFirstSentAt)
+            .HasColumnType("timestamp with time zone");
+
+        builder.Property(r => r.PendingLastSentAt)
+            .HasColumnType("timestamp with time zone");
+
+        builder.Property(r => r.PendingMessageId);
+
+        builder.Property(r => r.PendingUntil)
+            .HasColumnType("timestamp with time zone");
+
         builder.Property(r => r.CreatedAt)
             .IsRequired();
 
