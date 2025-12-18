@@ -17,6 +17,7 @@ public class IntakeHandler
     private readonly UserSessionService _sessionService;
     private readonly IMedicationService _medicationService;
     private readonly IMedicationIntakeService _intakeService;
+    private readonly IUserService _userService;
     private readonly ILogger<IntakeHandler> _logger;
 
     public IntakeHandler(
@@ -24,12 +25,14 @@ public class IntakeHandler
         UserSessionService sessionService,
         IMedicationService medicationService,
         IMedicationIntakeService intakeService,
+        IUserService userService,
         ILogger<IntakeHandler> logger)
     {
         _botClient = botClient;
         _sessionService = sessionService;
         _medicationService = medicationService;
         _intakeService = intakeService;
+        _userService = userService;
         _logger = logger;
     }
 
@@ -141,7 +144,7 @@ public class IntakeHandler
         if (result.IsSuccess)
         {
             var intake = result.Data!;
-            var timeStr = intake.IntakeTime.ToLocalTime().ToString(Messages.DateTimeFormat);
+            var timeStr = await GetUserLocalTimeStringAsync(session.UserId.Value, intake.IntakeTime, Messages.DateTimeFormat, ct);
 
             await _botClient.SendMessage(
                 chatId,
@@ -221,7 +224,7 @@ public class IntakeHandler
         if (result.IsSuccess)
         {
             var intake = result.Data!;
-            var timeStr = intake.IntakeTime.ToLocalTime().ToString(Messages.DateTimeFormat);
+            var timeStr = await GetUserLocalTimeStringAsync(session.UserId.Value, intake.IntakeTime, Messages.DateTimeFormat, ct);
 
             var message = string.IsNullOrEmpty(notes)
                 ? string.Format(Messages.IntakeRecorded, intake.MedicationName, timeStr)
@@ -356,9 +359,13 @@ public class IntakeHandler
         var sb = new StringBuilder();
         var currentDate = DateTime.MinValue;
 
+        // Получаем часовой пояс пользователя
+        var userTimeZone = await GetUserTimeZoneAsync(session.UserId.Value, ct);
+
         foreach (var intake in intakes.OrderByDescending(i => i.IntakeTime))
         {
-            var intakeDate = intake.IntakeTime.ToLocalTime().Date;
+            var intakeDateTime = TimeZoneInfo.ConvertTimeFromUtc(intake.IntakeTime, userTimeZone);
+            var intakeDate = intakeDateTime.Date;
 
             if (intakeDate != currentDate)
             {
@@ -367,7 +374,7 @@ public class IntakeHandler
                 sb.AppendLine($"\n📅 {dateStr}:");
             }
 
-            var timeStr = intake.IntakeTime.ToLocalTime().ToString(Messages.TimeFormat);
+            var timeStr = intakeDateTime.ToString(Messages.TimeFormat);
             var notesStr = string.IsNullOrEmpty(intake.Notes)
                 ? ""
                 : string.Format(Messages.IntakeNotes, intake.Notes);
@@ -481,9 +488,13 @@ public class IntakeHandler
         var medName = intakes.First().MedicationName;
         var sb = new StringBuilder($"📜 История приёмов \"{medName}\":\n\n");
 
+        // Получаем часовой пояс пользователя
+        var userTimeZone = await GetUserTimeZoneAsync(session.UserId.Value, ct);
+
         foreach (var intake in intakes)
         {
-            var dateTimeStr = intake.IntakeTime.ToLocalTime().ToString(Messages.DateTimeFormat);
+            var intakeDateTime = TimeZoneInfo.ConvertTimeFromUtc(intake.IntakeTime, userTimeZone);
+            var dateTimeStr = intakeDateTime.ToString(Messages.DateTimeFormat);
             var notesStr = string.IsNullOrEmpty(intake.Notes)
                 ? ""
                 : $"\n  📝 {intake.Notes}";
@@ -550,6 +561,40 @@ public class IntakeHandler
         if (date == today.AddDays(-1))
             return Messages.Yesterday;
         return date.ToString(Messages.DateFormat);
+    }
+
+    /// <summary>
+    /// Получить часовой пояс пользователя
+    /// </summary>
+    private async Task<TimeZoneInfo> GetUserTimeZoneAsync(Guid userId, CancellationToken ct)
+    {
+        var userResult = await _userService.GetByIdAsync(userId, ct);
+        if (!userResult.IsSuccess)
+        {
+            _logger.LogWarning("Failed to get user {UserId} for timezone, using UTC", userId);
+            return TimeZoneInfo.Utc;
+        }
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(userResult.Data!.TimeZoneId);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            _logger.LogWarning("Invalid timezone {TimeZoneId} for user {UserId}, using UTC",
+                userResult.Data!.TimeZoneId, userId);
+            return TimeZoneInfo.Utc;
+        }
+    }
+
+    /// <summary>
+    /// Получить строковое представление времени в часовом поясе пользователя
+    /// </summary>
+    private async Task<string> GetUserLocalTimeStringAsync(Guid userId, DateTime utcTime, string format, CancellationToken ct)
+    {
+        var userTimeZone = await GetUserTimeZoneAsync(userId, ct);
+        var localTime = TimeZoneInfo.ConvertTimeFromUtc(utcTime, userTimeZone);
+        return localTime.ToString(format);
     }
 }
 
