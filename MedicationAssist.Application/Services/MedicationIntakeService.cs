@@ -106,17 +106,31 @@ public class MedicationIntakeService : IMedicationIntakeService
             DateTime intakeTime;
             if (dto.IntakeTime.HasValue)
             {
-                // Клиент передает локальное время, конвертируем в UTC
-                try
+                var providedTime = dto.IntakeTime.Value;
+
+                // Если время уже в UTC, используем его как есть
+                if (providedTime.Kind == DateTimeKind.Utc)
                 {
-                    var userTimeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId);
-                    intakeTime = TimeZoneInfo.ConvertTimeToUtc(dto.IntakeTime.Value, userTimeZone);
+                    intakeTime = providedTime;
                 }
-                catch (TimeZoneNotFoundException)
+                // Если время локальное или не указано, конвертируем в UTC
+                else
                 {
-                    _logger.LogWarning("Invalid timezone {TimeZoneId} for user {UserId}, treating as UTC",
-                        user.TimeZoneId, userId);
-                    intakeTime = dto.IntakeTime.Value.ToUniversalTime();
+                    try
+                    {
+                        var userTimeZone = TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId);
+                        // Для корректной конвертации нужно убедиться, что DateTime имеет Kind = Unspecified
+                        var unspecifiedTime = DateTime.SpecifyKind(providedTime, DateTimeKind.Unspecified);
+                        intakeTime = TimeZoneInfo.ConvertTimeToUtc(unspecifiedTime, userTimeZone);
+                    }
+                    catch (TimeZoneNotFoundException)
+                    {
+                        _logger.LogWarning("Invalid timezone {TimeZoneId} for user {UserId}, treating as UTC",
+                            user.TimeZoneId, userId);
+                        intakeTime = providedTime.Kind == DateTimeKind.Local
+                            ? providedTime.ToUniversalTime()
+                            : DateTime.SpecifyKind(providedTime, DateTimeKind.Utc);
+                    }
                 }
             }
             else
