@@ -68,83 +68,83 @@ public class CallbackQueryHandler
             {
                 // Навигация
                 case "main_menu":
-                    await HandleMainMenuAsync(chatId, userId, ct);
+                    await HandleMainMenuAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "cancel":
-                    await HandleCancelAsync(chatId, userId, ct);
+                    await HandleCancelAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 // Аутентификация
                 case "login":
-                    await _authHandler.StartLoginAsync(chatId, userId, ct);
+                    await _authHandler.StartLoginAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "register":
-                    await _authHandler.StartRegisterAsync(chatId, userId, ct);
+                    await _authHandler.StartRegisterAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "quick_start":
-                    await _authHandler.QuickStartAsync(chatId, callbackQuery.From, ct);
+                    await _authHandler.QuickStartAsync(chatId, callbackQuery.From, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "logout":
-                    await _authHandler.LogoutAsync(chatId, userId, ct);
+                    await _authHandler.LogoutAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 // Лекарства
                 case "medications":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
-                    await _medicationHandler.ShowMedicationsMenuAsync(chatId, ct);
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await _medicationHandler.ShowMedicationsMenuAsync(chatId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "list_medications":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
-                    await _medicationHandler.ShowMedicationsListAsync(chatId, userId, ct);
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await _medicationHandler.ShowMedicationsListAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "add_medication":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
-                    await _medicationHandler.StartAddMedicationAsync(chatId, userId, ct);
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await _medicationHandler.StartAddMedicationAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "delete_medication_menu":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
-                    await _medicationHandler.ShowDeleteMedicationMenuAsync(chatId, userId, ct);
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await _medicationHandler.ShowDeleteMedicationMenuAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "med_details":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
                     if (Guid.TryParse(param, out var medId))
                     {
-                        await _medicationHandler.ShowMedicationDetailsAsync(chatId, medId, ct);
+                        await _medicationHandler.ShowMedicationDetailsAsync(chatId, medId, callbackQuery.Message.MessageId, ct);
                     }
                     break;
 
                 case "confirm_delete_med":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
                     if (Guid.TryParse(param, out var deleteMedId))
                     {
-                        await _medicationHandler.ShowDeleteConfirmationAsync(chatId, deleteMedId, ct);
+                        await _medicationHandler.ShowDeleteConfirmationAsync(chatId, deleteMedId, callbackQuery.Message.MessageId, ct);
                     }
                     break;
 
                 case "delete_med":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
                     if (Guid.TryParse(param, out var confirmDeleteMedId))
                     {
-                        await _medicationHandler.DeleteMedicationAsync(chatId, confirmDeleteMedId, ct);
+                        await _medicationHandler.DeleteMedicationAsync(chatId, confirmDeleteMedId, callbackQuery.Message.MessageId, ct);
                     }
                     break;
 
                 // Приёмы
                 case "intake":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
-                    await _intakeHandler.ShowIntakeMenuAsync(chatId, userId, ct);
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await _intakeHandler.ShowIntakeMenuAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "record_intake":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
                     if (Guid.TryParse(param, out var intakeMedId))
                     {
                         // Быстрая запись без примечаний
@@ -153,7 +153,7 @@ public class CallbackQueryHandler
                     break;
 
                 case "quick_intake":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
                     if (Guid.TryParse(param, out var quickIntakeMedId))
                     {
                         await _intakeHandler.QuickRecordIntakeAsync(chatId, userId, quickIntakeMedId, ct);
@@ -162,48 +162,48 @@ public class CallbackQueryHandler
 
                 // История
                 case "history":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
                     if (!string.IsNullOrEmpty(param))
                     {
-                        await _intakeHandler.ShowIntakeHistoryAsync(chatId, userId, param, ct);
+                        await _intakeHandler.ShowIntakeHistoryAsync(chatId, userId, param, callbackQuery.Message.MessageId, ct);
                     }
                     else
                     {
-                        await _intakeHandler.ShowHistoryPeriodMenuAsync(chatId, ct);
+                        await _intakeHandler.ShowHistoryPeriodMenuAsync(chatId, callbackQuery.Message.MessageId, ct);
                     }
                     break;
 
                 case "medication_history":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
                     if (Guid.TryParse(param, out var historyMedId))
                     {
-                        await _intakeHandler.ShowMedicationIntakeHistoryAsync(chatId, userId, historyMedId, ct);
+                        await _intakeHandler.ShowMedicationIntakeHistoryAsync(chatId, userId, historyMedId, callbackQuery.Message.MessageId, ct);
                     }
                     break;
 
                 // Напоминания
                 case "reminders":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
-                    await _reminderHandler.ShowRemindersMenuAsync(chatId, ct);
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await _reminderHandler.ShowRemindersMenuAsync(chatId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "add_reminder":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
-                    await _reminderHandler.StartAddReminderAsync(chatId, userId, ct);
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await _reminderHandler.StartAddReminderAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "list_reminders":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
-                    await _reminderHandler.ShowRemindersListAsync(chatId, userId, ct);
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await _reminderHandler.ShowRemindersListAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "delete_reminder_menu":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
-                    await _reminderHandler.ShowDeleteReminderMenuAsync(chatId, userId, ct);
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await _reminderHandler.ShowDeleteReminderMenuAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "reminder_med":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
                     if (Guid.TryParse(param, out var reminderMedId))
                     {
                         await _reminderHandler.HandleMedicationSelectedAsync(chatId, userId, reminderMedId, ct);
@@ -211,7 +211,7 @@ public class CallbackQueryHandler
                     break;
 
                 case "delete_reminder":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
                     if (Guid.TryParse(param, out var deleteReminderId))
                     {
                         await _reminderHandler.DeleteReminderAsync(chatId, userId, deleteReminderId, ct);
@@ -220,25 +220,25 @@ public class CallbackQueryHandler
 
                 // Настройки
                 case "settings":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
-                    await _settingsHandler.ShowSettingsAsync(chatId, userId, ct);
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await _settingsHandler.ShowSettingsAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "settings_timezone":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
-                    await _settingsHandler.ShowTimeZoneSelectorAsync(chatId, ct);
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await _settingsHandler.ShowTimeZoneSelectorAsync(chatId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "timezone":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
                     if (!string.IsNullOrEmpty(param))
                     {
-                        await _settingsHandler.SetTimeZoneAsync(chatId, userId, param, ct);
+                        await _settingsHandler.SetTimeZoneAsync(chatId, userId, param, callbackQuery.Message.MessageId, ct);
                     }
                     break;
 
                 case "med_add_reminder":
-                    if (!await EnsureAuthenticatedAsync(chatId, userId, ct)) return;
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
                     if (Guid.TryParse(param, out var medReminderId))
                     {
                         await _reminderHandler.AddReminderForMedicationAsync(chatId, userId, medReminderId, ct);
@@ -260,35 +260,39 @@ public class CallbackQueryHandler
         }
     }
 
-    private async Task HandleMainMenuAsync(long chatId, long userId, CancellationToken ct)
+    private async Task HandleMainMenuAsync(long chatId, long userId, int messageId, CancellationToken ct)
     {
         _sessionService.ResetState(userId);
         var session = _sessionService.GetSession(userId);
 
         if (session?.IsAuthenticated == true)
         {
-            await _botClient.SendMessage(
+            await _botClient.EditMessageText(
                 chatId,
+                messageId,
                 Messages.MainMenu,
                 replyMarkup: InlineKeyboards.MainMenu,
                 cancellationToken: ct);
         }
         else
         {
-            await _authHandler.ShowAuthMenuAsync(chatId, ct);
+            await _authHandler.ShowAuthMenuAsync(chatId, messageId, ct);
         }
     }
 
-    private async Task HandleCancelAsync(long chatId, long userId, CancellationToken ct)
+    private async Task HandleCancelAsync(long chatId, long userId, int messageId, CancellationToken ct)
     {
         _sessionService.ResetState(userId);
 
-        await _botClient.SendMessage(
+        await _botClient.EditMessageText(
             chatId,
+            messageId,
             Messages.OperationCancelled,
             cancellationToken: ct);
 
-        await HandleMainMenuAsync(chatId, userId, ct);
+        // Показать главное меню через небольшую задержку
+        await Task.Delay(500, ct);
+        await HandleMainMenuAsync(chatId, userId, messageId, ct);
     }
 
     private async Task HandleSettingsAsync(long chatId, CancellationToken ct)
@@ -300,13 +304,13 @@ public class CallbackQueryHandler
             cancellationToken: ct);
     }
 
-    private async Task<bool> EnsureAuthenticatedAsync(long chatId, long userId, CancellationToken ct)
+    private async Task<bool> EnsureAuthenticatedAsync(long chatId, long userId, int messageId, CancellationToken ct)
     {
         var session = _sessionService.GetOrCreateSession(userId);
 
         if (!session.IsAuthenticated)
         {
-            await _authHandler.ShowAuthMenuAsync(chatId, ct);
+            await _authHandler.ShowAuthMenuAsync(chatId, messageId, ct);
             return false;
         }
 

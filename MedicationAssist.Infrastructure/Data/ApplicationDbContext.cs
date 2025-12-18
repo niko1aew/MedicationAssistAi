@@ -1,5 +1,4 @@
 using MedicationAssist.Domain.Entities;
-using MedicationAssist.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 
@@ -15,7 +14,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<Medication> Medications => Set<Medication>();
     public DbSet<MedicationIntake> MedicationIntakes => Set<MedicationIntake>();
     public DbSet<Reminder> Reminders => Set<Reminder>();
-    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Security.RefreshToken> RefreshTokens => Set<Security.RefreshToken>();
+    public DbSet<Security.LinkToken> LinkTokens => Set<Security.LinkToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

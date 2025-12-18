@@ -209,5 +209,49 @@ public class UsersController : ControllerBase
 
         return Ok(result.Data);
     }
+
+    /// <summary>
+    /// Сгенерировать токен для привязки Telegram аккаунта
+    /// </summary>
+    [HttpPost("{userId:guid}/telegram-link-token")]
+    public async Task<ActionResult<object>> GenerateTelegramLinkToken(Guid userId, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Запрос на генерацию токена привязки Telegram для пользователя {UserId}", userId);
+
+        // Проверка: только владелец аккаунта или админ может генерировать токен
+        var currentUserIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        var currentUserRoleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role);
+
+        if (currentUserIdClaim == null)
+        {
+            return Unauthorized(new { error = "User not authenticated" });
+        }
+
+        var currentUserId = Guid.Parse(currentUserIdClaim.Value);
+        var currentUserRole = currentUserRoleClaim?.Value;
+
+        if (currentUserId != userId && currentUserRole != "Admin")
+        {
+            _logger.LogWarning("User {CurrentUserId} tried to generate link token for user {UserId}", currentUserId, userId);
+            return Forbid();
+        }
+
+        var result = await _userService.GenerateLinkTokenAsync(userId, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        var botUsername = "MedicationAssistBot"; // TODO: вынести в конфигурацию
+        var deepLink = $"https://t.me/{botUsername}?start=link_{result.Data}";
+
+        return Ok(new
+        {
+            token = result.Data,
+            deepLink,
+            expiresInMinutes = 15
+        });
+    }
 }
 

@@ -46,6 +46,19 @@ public class AuthHandler
     }
 
     /// <summary>
+    /// Показать меню аутентификации (редактирование существующего сообщения)
+    /// </summary>
+    public async Task ShowAuthMenuAsync(long chatId, int messageId, CancellationToken ct)
+    {
+        await _botClient.EditMessageText(
+            chatId,
+            messageId,
+            Messages.AuthRequired,
+            replyMarkup: InlineKeyboards.AuthMenu,
+            cancellationToken: ct);
+    }
+
+    /// <summary>
     /// Начать процесс входа
     /// </summary>
     public async Task StartLoginAsync(long chatId, long userId, CancellationToken ct)
@@ -53,6 +66,20 @@ public class AuthHandler
         _sessionService.SetState(userId, ConversationState.AwaitingEmail);
         await _botClient.SendMessage(
             chatId,
+            Messages.EnterEmail,
+            replyMarkup: InlineKeyboards.CancelButton,
+            cancellationToken: ct);
+    }
+
+    /// <summary>
+    /// Начать процесс входа (редактирование существующего сообщения)
+    /// </summary>
+    public async Task StartLoginAsync(long chatId, long userId, int messageId, CancellationToken ct)
+    {
+        _sessionService.SetState(userId, ConversationState.AwaitingEmail);
+        await _botClient.EditMessageText(
+            chatId,
+            messageId,
             Messages.EnterEmail,
             replyMarkup: InlineKeyboards.CancelButton,
             cancellationToken: ct);
@@ -72,9 +99,31 @@ public class AuthHandler
     }
 
     /// <summary>
+    /// Начать процесс регистрации (редактирование существующего сообщения)
+    /// </summary>
+    public async Task StartRegisterAsync(long chatId, long userId, int messageId, CancellationToken ct)
+    {
+        _sessionService.SetState(userId, ConversationState.AwaitingRegisterName);
+        await _botClient.EditMessageText(
+            chatId,
+            messageId,
+            Messages.EnterName,
+            replyMarkup: InlineKeyboards.CancelButton,
+            cancellationToken: ct);
+    }
+
+    /// <summary>
     /// Быстрый старт (автоматическая регистрация через Telegram ID)
     /// </summary>
-    public async Task QuickStartAsync(long chatId, User telegramUser, CancellationToken ct)
+    public Task QuickStartAsync(long chatId, User telegramUser, CancellationToken ct)
+    {
+        return QuickStartAsync(chatId, telegramUser, null, ct);
+    }
+
+    /// <summary>
+    /// Быстрый старт (автоматическая регистрация через Telegram ID) с редактированием существующего сообщения
+    /// </summary>
+    public async Task QuickStartAsync(long chatId, User telegramUser, int? messageId, CancellationToken ct)
     {
         var email = $"{telegramUser.Id}@telegram.local";
 
@@ -101,11 +150,23 @@ public class AuthHandler
 
             _sessionService.Authenticate(telegramUser.Id, existingUser.Data.Id, existingUser.Data.Name);
 
-            await _botClient.SendMessage(
-                chatId,
-                string.Format(Messages.WelcomeBack, existingUser.Data.Name),
-                replyMarkup: InlineKeyboards.MainMenu,
-                cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    string.Format(Messages.WelcomeBack, existingUser.Data.Name),
+                    replyMarkup: InlineKeyboards.MainMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    string.Format(Messages.WelcomeBack, existingUser.Data.Name),
+                    replyMarkup: InlineKeyboards.MainMenu,
+                    cancellationToken: ct);
+            }
 
             _logger.LogInformation(
                 "Telegram user {TelegramUserId} authenticated via quick start as {Email}",
@@ -148,12 +209,25 @@ public class AuthHandler
                                    $"🔑 <b>Пароль:</b> <code>{password}</code>\n\n" +
                                    $"💡 <i>Сохраните эти данные для входа на сайт!</i>";
 
-            await _botClient.SendMessage(
-                chatId,
-                credentialsMessage,
-                parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
-                replyMarkup: InlineKeyboards.MainMenu,
-                cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    credentialsMessage,
+                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
+                    replyMarkup: InlineKeyboards.MainMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    credentialsMessage,
+                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
+                    replyMarkup: InlineKeyboards.MainMenu,
+                    cancellationToken: ct);
+            }
 
             _logger.LogInformation(
                 "Quick registration of Telegram user {TelegramUserId} as {Email}",
@@ -161,11 +235,23 @@ public class AuthHandler
         }
         else
         {
-            await _botClient.SendMessage(
-                chatId,
-                string.Format(Messages.Error, result.Error),
-                replyMarkup: InlineKeyboards.AuthMenu,
-                cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    string.Format(Messages.Error, result.Error),
+                    replyMarkup: InlineKeyboards.AuthMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    string.Format(Messages.Error, result.Error),
+                    replyMarkup: InlineKeyboards.AuthMenu,
+                    cancellationToken: ct);
+            }
         }
     }
 
@@ -386,6 +472,84 @@ public class AuthHandler
             Messages.LogoutSuccess,
             replyMarkup: InlineKeyboards.AuthMenu,
             cancellationToken: ct);
+    }
+
+    /// <summary>
+    /// Выход из аккаунта (редактирование существующего сообщения)
+    /// </summary>
+    public async Task LogoutAsync(long chatId, long userId, int messageId, CancellationToken ct)
+    {
+        _sessionService.Logout(userId);
+
+        await _botClient.EditMessageText(
+            chatId,
+            messageId,
+            Messages.LogoutSuccess,
+            replyMarkup: InlineKeyboards.AuthMenu,
+            cancellationToken: ct);
+    }
+
+    /// <summary>
+    /// Привязать Telegram по токену (deep link)
+    /// </summary>
+    public async Task HandleLinkByTokenAsync(long chatId, User telegramUser, string token, CancellationToken ct)
+    {
+        try
+        {
+            _logger.LogInformation("Attempting to link Telegram user {TelegramUserId} with token", telegramUser.Id);
+
+            var linkDto = new LinkTelegramDto(telegramUser.Id, telegramUser.Username);
+            var result = await _userService.LinkTelegramByTokenAsync(token, linkDto, ct);
+
+            if (result.IsSuccess && result.Data != null)
+            {
+                // Аутентифицируем пользователя в сессии
+                _sessionService.Authenticate(telegramUser.Id, result.Data.Id, result.Data.Name);
+
+                await _botClient.SendMessage(
+                    chatId,
+                    $"✅ <b>Telegram успешно привязан!</b>\n\n" +
+                    $"👤 Ваш аккаунт: <b>{result.Data.Name}</b>\n" +
+                    $"📧 Email: <code>{result.Data.Email}</code>\n\n" +
+                    $"Теперь вы можете управлять приемом лекарств через бота!",
+                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
+                    replyMarkup: InlineKeyboards.MainMenu,
+                    cancellationToken: ct);
+
+                _logger.LogInformation(
+                    "Successfully linked Telegram user {TelegramUserId} to account {UserId}",
+                    telegramUser.Id, result.Data.Id);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    $"❌ <b>Ошибка привязки</b>\n\n" +
+                    $"{result.Error}\n\n" +
+                    $"Возможные причины:\n" +
+                    $"• Токен истек (действителен 15 минут)\n" +
+                    $"• Токен уже использован\n" +
+                    $"• Ваш Telegram уже привязан к другому аккаунту\n\n" +
+                    $"Попробуйте создать новую ссылку на сайте.",
+                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
+                    replyMarkup: InlineKeyboards.AuthMenu,
+                    cancellationToken: ct);
+
+                _logger.LogWarning(
+                    "Failed to link Telegram user {TelegramUserId}: {Error}",
+                    telegramUser.Id, result.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while linking Telegram user {TelegramUserId} by token", telegramUser.Id);
+
+            await _botClient.SendMessage(
+                chatId,
+                "❌ Произошла ошибка при привязке аккаунта. Попробуйте позже.",
+                replyMarkup: InlineKeyboards.AuthMenu,
+                cancellationToken: ct);
+        }
     }
 }
 

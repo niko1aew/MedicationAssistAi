@@ -44,71 +44,151 @@ public class MedicationHandler
     }
 
     /// <summary>
+    /// Показать меню лекарств (редактирование существующего сообщения)
+    /// </summary>
+    public async Task ShowMedicationsMenuAsync(long chatId, int messageId, CancellationToken ct)
+    {
+        await _botClient.EditMessageText(
+            chatId,
+            messageId,
+            "💊 Управление лекарствами",
+            replyMarkup: InlineKeyboards.MedicationsMenu,
+            cancellationToken: ct);
+    }
+
+    /// <summary>
     /// Показать список лекарств пользователя
     /// </summary>
-    public async Task ShowMedicationsListAsync(long chatId, long userId, CancellationToken ct)
+    public Task ShowMedicationsListAsync(long chatId, long userId, CancellationToken ct)
+    {
+        return ShowMedicationsListAsync(chatId, userId, null, ct);
+    }
+
+    /// <summary>
+    /// Показать список лекарств пользователbя (с возможностью редактирования)
+    /// </summary>
+    public async Task ShowMedicationsListAsync(long chatId, long userId, int? messageId, CancellationToken ct)
     {
         var session = _sessionService.GetSession(userId);
         if (session?.UserId == null)
         {
-            await _botClient.SendMessage(chatId, Messages.AuthRequired, cancellationToken: ct);
+            if (messageId.HasValue)
+                await _botClient.EditMessageText(chatId, messageId.Value, Messages.AuthRequired, cancellationToken: ct);
+            else
+                await _botClient.SendMessage(chatId, Messages.AuthRequired, cancellationToken: ct);
             return;
         }
 
         var result = await _medicationService.GetByUserIdAsync(session.UserId.Value, ct);
-        
+
         if (!result.IsSuccess)
         {
-            await _botClient.SendMessage(
-                chatId,
-                string.Format(Messages.Error, result.Error),
-                replyMarkup: InlineKeyboards.BackToMainMenu,
-                cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    string.Format(Messages.Error, result.Error),
+                    replyMarkup: InlineKeyboards.BackToMainMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    string.Format(Messages.Error, result.Error),
+                    replyMarkup: InlineKeyboards.BackToMainMenu,
+                    cancellationToken: ct);
+            }
             return;
         }
 
         var medications = result.Data!.ToList();
-        
+
         if (medications.Count == 0)
         {
-            await _botClient.SendMessage(
-                chatId,
-                Messages.NoMedications,
-                replyMarkup: InlineKeyboards.MedicationsMenu,
-                cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    Messages.NoMedications,
+                    replyMarkup: InlineKeyboards.MedicationsMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    Messages.NoMedications,
+                    replyMarkup: InlineKeyboards.MedicationsMenu,
+                    cancellationToken: ct);
+            }
             return;
         }
 
         var sb = new StringBuilder();
         foreach (var med in medications)
         {
-            var dosage = string.IsNullOrEmpty(med.Dosage) 
-                ? "" 
+            var dosage = string.IsNullOrEmpty(med.Dosage)
+                ? ""
                 : string.Format(Messages.MedicationDosage, med.Dosage);
             sb.AppendLine(string.Format(Messages.MedicationItem, med.Name, dosage));
         }
 
-        await _botClient.SendMessage(
-            chatId,
-            string.Format(Messages.MedicationsList, sb.ToString()),
-            replyMarkup: InlineKeyboards.MedicationsList(medications, "med_details"),
-            cancellationToken: ct);
+        if (messageId.HasValue)
+        {
+            await _botClient.EditMessageText(
+                chatId,
+                messageId.Value,
+                string.Format(Messages.MedicationsList, sb.ToString()),
+                replyMarkup: InlineKeyboards.MedicationsList(medications, "med_details"),
+                cancellationToken: ct);
+        }
+        else
+        {
+            await _botClient.SendMessage(
+                chatId,
+                string.Format(Messages.MedicationsList, sb.ToString()),
+                replyMarkup: InlineKeyboards.MedicationsList(medications, "med_details"),
+                cancellationToken: ct);
+        }
     }
 
     /// <summary>
     /// Показать детали лекарства
     /// </summary>
-    public async Task ShowMedicationDetailsAsync(long chatId, Guid medicationId, CancellationToken ct)
+    public Task ShowMedicationDetailsAsync(long chatId, Guid medicationId, CancellationToken ct)
+    {
+        return ShowMedicationDetailsAsync(chatId, medicationId, null, ct);
+    }
+
+    /// <summary>
+    /// Показать детали лекарства (с возможностью редактирования)
+    /// </summary>
+    public async Task ShowMedicationDetailsAsync(long chatId, Guid medicationId, int? messageId, CancellationToken ct)
     {
         var result = await _medicationService.GetByIdAsync(medicationId, ct);
-        
+
         if (!result.IsSuccess)
         {
-            await _botClient.SendMessage(
-                chatId,
-                string.Format(Messages.Error, result.Error),
-                replyMarkup: InlineKeyboards.BackToMainMenu,
-                cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    string.Format(Messages.Error, result.Error),
+                    replyMarkup: InlineKeyboards.BackToMainMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    string.Format(Messages.Error, result.Error),
+                    replyMarkup: InlineKeyboards.BackToMainMenu,
+                    cancellationToken: ct);
+            }
             return;
         }
 
@@ -120,11 +200,23 @@ public class MedicationHandler
             string.IsNullOrEmpty(med.Description) ? Messages.NotSpecified : med.Description,
             med.CreatedAt.ToString(Messages.DateFormat));
 
-        await _botClient.SendMessage(
-            chatId,
-            message,
-            replyMarkup: InlineKeyboards.MedicationActions(medicationId),
-            cancellationToken: ct);
+        if (messageId.HasValue)
+        {
+            await _botClient.EditMessageText(
+                chatId,
+                messageId.Value,
+                message,
+                replyMarkup: InlineKeyboards.MedicationActions(medicationId),
+                cancellationToken: ct);
+        }
+        else
+        {
+            await _botClient.SendMessage(
+                chatId,
+                message,
+                replyMarkup: InlineKeyboards.MedicationActions(medicationId),
+                cancellationToken: ct);
+        }
     }
 
     /// <summary>
@@ -134,9 +226,25 @@ public class MedicationHandler
     {
         _sessionService.SetState(userId, ConversationState.AwaitingMedicationName);
         _sessionService.ClearTempData(userId);
-        
+
         await _botClient.SendMessage(
             chatId,
+            Messages.EnterMedicationName,
+            replyMarkup: InlineKeyboards.CancelButton,
+            cancellationToken: ct);
+    }
+
+    /// <summary>
+    /// Начать добавление нового лекарства (редактирование существующего сообщения)
+    /// </summary>
+    public async Task StartAddMedicationAsync(long chatId, long userId, int messageId, CancellationToken ct)
+    {
+        _sessionService.SetState(userId, ConversationState.AwaitingMedicationName);
+        _sessionService.ClearTempData(userId);
+
+        await _botClient.EditMessageText(
+            chatId,
+            messageId,
             Messages.EnterMedicationName,
             replyMarkup: InlineKeyboards.CancelButton,
             cancellationToken: ct);
@@ -169,7 +277,7 @@ public class MedicationHandler
 
         _sessionService.SetTempData(userId, "medicationName", name);
         _sessionService.SetState(userId, ConversationState.AwaitingMedicationDosage);
-        
+
         await _botClient.SendMessage(
             chatId,
             Messages.EnterMedicationDosage,
@@ -198,7 +306,7 @@ public class MedicationHandler
 
         _sessionService.SetTempData(userId, "medicationDosage", dosage ?? "");
         _sessionService.SetState(userId, ConversationState.AwaitingMedicationDescription);
-        
+
         await _botClient.SendMessage(
             chatId,
             Messages.EnterMedicationDescription,
@@ -259,7 +367,7 @@ public class MedicationHandler
                 string.Format(Messages.MedicationAdded, name),
                 replyMarkup: InlineKeyboards.AfterAddMedicationMenu,
                 cancellationToken: ct);
-            
+
             _logger.LogInformation(
                 "User {UserId} added medication: {MedicationName}",
                 session.UserId, name);
@@ -269,7 +377,7 @@ public class MedicationHandler
             var errorMessage = result.Error?.Contains("уже существует") == true
                 ? Messages.MedicationExists
                 : string.Format(Messages.Error, result.Error);
-            
+
             await _botClient.SendMessage(
                 chatId,
                 errorMessage,
@@ -281,84 +389,182 @@ public class MedicationHandler
     /// <summary>
     /// Показать меню удаления лекарств
     /// </summary>
-    public async Task ShowDeleteMedicationMenuAsync(long chatId, long userId, CancellationToken ct)
+    public Task ShowDeleteMedicationMenuAsync(long chatId, long userId, CancellationToken ct)
+    {
+        return ShowDeleteMedicationMenuAsync(chatId, userId, null, ct);
+    }
+
+    /// <summary>
+    /// Показать меню удаления лекарств (с возможностью редактирования)
+    /// </summary>
+    public async Task ShowDeleteMedicationMenuAsync(long chatId, long userId, int? messageId, CancellationToken ct)
     {
         var session = _sessionService.GetSession(userId);
         if (session?.UserId == null)
         {
-            await _botClient.SendMessage(chatId, Messages.AuthRequired, cancellationToken: ct);
+            if (messageId.HasValue)
+                await _botClient.EditMessageText(chatId, messageId.Value, Messages.AuthRequired, cancellationToken: ct);
+            else
+                await _botClient.SendMessage(chatId, Messages.AuthRequired, cancellationToken: ct);
             return;
         }
 
         var result = await _medicationService.GetByUserIdAsync(session.UserId.Value, ct);
-        
+
         if (!result.IsSuccess || !result.Data!.Any())
         {
-            await _botClient.SendMessage(
-                chatId,
-                Messages.NoMedications,
-                replyMarkup: InlineKeyboards.MedicationsMenu,
-                cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    Messages.NoMedications,
+                    replyMarkup: InlineKeyboards.MedicationsMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    Messages.NoMedications,
+                    replyMarkup: InlineKeyboards.MedicationsMenu,
+                    cancellationToken: ct);
+            }
             return;
         }
 
-        await _botClient.SendMessage(
-            chatId,
-            Messages.SelectMedicationToDelete,
-            replyMarkup: InlineKeyboards.MedicationsList(result.Data!, "confirm_delete_med"),
-            cancellationToken: ct);
-    }
-
-    /// <summary>
-    /// Показать подтверждение удаления
-    /// </summary>
-    public async Task ShowDeleteConfirmationAsync(long chatId, Guid medicationId, CancellationToken ct)
-    {
-        var result = await _medicationService.GetByIdAsync(medicationId, ct);
-        
-        if (!result.IsSuccess)
+        if (messageId.HasValue)
         {
-            await _botClient.SendMessage(
+            await _botClient.EditMessageText(
                 chatId,
-                string.Format(Messages.Error, result.Error),
+                messageId.Value,
+                Messages.SelectMedicationToDelete,
+                replyMarkup: InlineKeyboards.MedicationsList(result.Data!, "confirm_delete_med"),
                 cancellationToken: ct);
-            return;
-        }
-
-        await _botClient.SendMessage(
-            chatId,
-            string.Format(Messages.ConfirmDeleteMedication, result.Data!.Name),
-            replyMarkup: InlineKeyboards.ConfirmCancel($"delete_med:{medicationId}", "list_medications"),
-            cancellationToken: ct);
-    }
-
-    /// <summary>
-    /// Удалить лекарство
-    /// </summary>
-    public async Task DeleteMedicationAsync(long chatId, Guid medicationId, CancellationToken ct)
-    {
-        var medResult = await _medicationService.GetByIdAsync(medicationId, ct);
-        var medName = medResult.IsSuccess ? medResult.Data!.Name : "лекарство";
-
-        var result = await _medicationService.DeleteAsync(medicationId, ct);
-        
-        if (result.IsSuccess)
-        {
-            await _botClient.SendMessage(
-                chatId,
-                string.Format(Messages.MedicationDeleted, medName),
-                replyMarkup: InlineKeyboards.MedicationsMenu,
-                cancellationToken: ct);
-            
-            _logger.LogInformation("Medication deleted: {MedicationId}", medicationId);
         }
         else
         {
             await _botClient.SendMessage(
                 chatId,
-                string.Format(Messages.Error, result.Error),
-                replyMarkup: InlineKeyboards.MedicationsMenu,
+                Messages.SelectMedicationToDelete,
+                replyMarkup: InlineKeyboards.MedicationsList(result.Data!, "confirm_delete_med"),
                 cancellationToken: ct);
+        }
+    }
+
+    /// <summary>
+    /// Показать подтверждение удаления
+    /// </summary>
+    public Task ShowDeleteConfirmationAsync(long chatId, Guid medicationId, CancellationToken ct)
+    {
+        return ShowDeleteConfirmationAsync(chatId, medicationId, null, ct);
+    }
+
+    /// <summary>
+    /// Показать подтверждение удаления (с возможностью редактирования)
+    /// </summary>
+    public async Task ShowDeleteConfirmationAsync(long chatId, Guid medicationId, int? messageId, CancellationToken ct)
+    {
+        var result = await _medicationService.GetByIdAsync(medicationId, ct);
+
+        if (!result.IsSuccess)
+        {
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    string.Format(Messages.Error, result.Error),
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    string.Format(Messages.Error, result.Error),
+                    cancellationToken: ct);
+            }
+            return;
+        }
+
+        if (messageId.HasValue)
+        {
+            await _botClient.EditMessageText(
+                chatId,
+                messageId.Value,
+                string.Format(Messages.ConfirmDeleteMedication, result.Data!.Name),
+                replyMarkup: InlineKeyboards.ConfirmCancel($"delete_med:{medicationId}", "list_medications"),
+                cancellationToken: ct);
+        }
+        else
+        {
+            await _botClient.SendMessage(
+                chatId,
+                string.Format(Messages.ConfirmDeleteMedication, result.Data!.Name),
+                replyMarkup: InlineKeyboards.ConfirmCancel($"delete_med:{medicationId}", "list_medications"),
+                cancellationToken: ct);
+        }
+    }
+
+    /// <summary>
+    /// Удалить лекарство
+    /// </summary>
+    public Task DeleteMedicationAsync(long chatId, Guid medicationId, CancellationToken ct)
+    {
+        return DeleteMedicationAsync(chatId, medicationId, null, ct);
+    }
+
+    /// <summary>
+    /// Удалить лекарство (с возможностью редактирования)
+    /// </summary>
+    public async Task DeleteMedicationAsync(long chatId, Guid medicationId, int? messageId, CancellationToken ct)
+    {
+        var medResult = await _medicationService.GetByIdAsync(medicationId, ct);
+        var medName = medResult.IsSuccess ? medResult.Data!.Name : "лекарство";
+
+        var result = await _medicationService.DeleteAsync(medicationId, ct);
+
+        if (result.IsSuccess)
+        {
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    string.Format(Messages.MedicationDeleted, medName),
+                    replyMarkup: InlineKeyboards.MedicationsMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    string.Format(Messages.MedicationDeleted, medName),
+                    replyMarkup: InlineKeyboards.MedicationsMenu,
+                    cancellationToken: ct);
+            }
+
+            _logger.LogInformation("Medication deleted: {MedicationId}", medicationId);
+        }
+        else
+        {
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    string.Format(Messages.Error, result.Error),
+                    replyMarkup: InlineKeyboards.MedicationsMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    string.Format(Messages.Error, result.Error),
+                    replyMarkup: InlineKeyboards.MedicationsMenu,
+                    cancellationToken: ct);
+            }
         }
     }
 }

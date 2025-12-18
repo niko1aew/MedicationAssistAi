@@ -24,7 +24,7 @@ public static class DependencyInjection
                 "Connection string 'DefaultConnection' not found. " +
                 "Set the ConnectionStrings__DefaultConnection environment variable or configure appsettings.json");
         }
-        
+
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(
                 connectionString,
@@ -42,9 +42,10 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
-        
+        services.AddScoped<ILinkTokenService, LinkTokenService>();
+
         // Конфигурация JWT
-        services.Configure<JwtSettings>(options => 
+        services.Configure<JwtSettings>(options =>
             configuration.GetSection(JwtSettings.SectionName).Bind(options));
 
         return services;

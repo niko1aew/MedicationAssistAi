@@ -50,7 +50,8 @@ public class CommandHandler
 
         var chatId = message.Chat.Id;
         var userId = message.From.Id;
-        var command = message.Text.Split(' ')[0].ToLower();
+        var messageParts = message.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var command = messageParts[0].ToLower();
 
         // Убираем @botname если есть
         if (command.Contains('@'))
@@ -58,7 +59,8 @@ public class CommandHandler
             command = command.Split('@')[0];
         }
 
-        _logger.LogDebug("Received command {Command} from user {UserId}", command, userId);
+        _logger.LogInformation("Received command {Command} from user {UserId}. Full text: {Text}. Parts count: {Count}",
+            command, userId, message.Text, messageParts.Length);
 
         var session = _sessionService.GetOrCreateSession(userId);
 
@@ -79,7 +81,9 @@ public class CommandHandler
         switch (command)
         {
             case "/start":
-                await HandleStartAsync(chatId, userId, message.From, ct);
+                // Проверяем наличие параметра deep link
+                var startParameter = messageParts.Length > 1 ? messageParts[1] : null;
+                await HandleStartAsync(chatId, userId, message.From, startParameter, ct);
                 break;
 
             case "/help":
@@ -209,8 +213,19 @@ public class CommandHandler
         }
     }
 
-    private async Task HandleStartAsync(long chatId, long userId, User telegramUser, CancellationToken ct)
+    private async Task HandleStartAsync(long chatId, long userId, User telegramUser, string? parameter, CancellationToken ct)
     {
+        _logger.LogInformation("HandleStartAsync called with parameter: {Parameter}", parameter);
+
+        // Обработка deep link для привязки Telegram
+        if (!string.IsNullOrEmpty(parameter) && parameter.StartsWith("link_"))
+        {
+            var token = parameter.Substring(5); // Убираем префикс "link_"
+            _logger.LogInformation("Detected link token, redirecting to HandleLinkByTokenAsync with token: {Token}", token);
+            await _authHandler.HandleLinkByTokenAsync(chatId, telegramUser, token, ct);
+            return;
+        }
+
         var session = _sessionService.GetOrCreateSession(userId);
 
         if (session.IsAuthenticated)

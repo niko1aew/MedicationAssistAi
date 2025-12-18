@@ -50,19 +50,33 @@ public class SettingsHandler
     /// <summary>
     /// Показать меню настроек
     /// </summary>
-    public async Task ShowSettingsAsync(long chatId, long telegramUserId, CancellationToken ct)
+    public Task ShowSettingsAsync(long chatId, long telegramUserId, CancellationToken ct)
+    {
+        return ShowSettingsAsync(chatId, telegramUserId, null, ct);
+    }
+
+    /// <summary>
+    /// Показать меню настроек (с возможностью редактирования)
+    /// </summary>
+    public async Task ShowSettingsAsync(long chatId, long telegramUserId, int? messageId, CancellationToken ct)
     {
         var session = _sessionService.GetSession(telegramUserId);
         if (session?.UserId == null)
         {
-            await _botClient.SendMessage(chatId, Messages.AuthRequired, cancellationToken: ct);
+            if (messageId.HasValue)
+                await _botClient.EditMessageText(chatId, messageId.Value, Messages.AuthRequired, cancellationToken: ct);
+            else
+                await _botClient.SendMessage(chatId, Messages.AuthRequired, cancellationToken: ct);
             return;
         }
 
         var userResult = await _userService.GetByIdAsync(session.UserId.Value, ct);
         if (!userResult.IsSuccess || userResult.Data == null)
         {
-            await _botClient.SendMessage(chatId, Messages.UnknownError, cancellationToken: ct);
+            if (messageId.HasValue)
+                await _botClient.EditMessageText(chatId, messageId.Value, Messages.UnknownError, cancellationToken: ct);
+            else
+                await _botClient.SendMessage(chatId, Messages.UnknownError, cancellationToken: ct);
             return;
         }
 
@@ -91,20 +105,40 @@ public class SettingsHandler
         var keyboard = new InlineKeyboardMarkup(new[]
         {
             new[] { InlineKeyboardButton.WithCallbackData("🌍 Изменить часовой пояс", "settings_timezone") },
-            new[] { InlineKeyboardButton.WithCallbackData("◀️ Главное меню", "menu") }
+            new[] { InlineKeyboardButton.WithCallbackData("◀️ Главное меню", "main_menu") }
         });
 
-        await _botClient.SendMessage(
-            chatId,
-            settingsText,
-            replyMarkup: keyboard,
-            cancellationToken: ct);
+        if (messageId.HasValue)
+        {
+            await _botClient.EditMessageText(
+                chatId,
+                messageId.Value,
+                settingsText,
+                replyMarkup: keyboard,
+                cancellationToken: ct);
+        }
+        else
+        {
+            await _botClient.SendMessage(
+                chatId,
+                settingsText,
+                replyMarkup: keyboard,
+                cancellationToken: ct);
+        }
     }
 
     /// <summary>
     /// Показать меню выбора часового пояса
     /// </summary>
-    public async Task ShowTimeZoneSelectorAsync(long chatId, CancellationToken ct)
+    public Task ShowTimeZoneSelectorAsync(long chatId, CancellationToken ct)
+    {
+        return ShowTimeZoneSelectorAsync(chatId, null, ct);
+    }
+
+    /// <summary>
+    /// Показать меню выбора часового пояса (с возможностью редактирования)
+    /// </summary>
+    public async Task ShowTimeZoneSelectorAsync(long chatId, int? messageId, CancellationToken ct)
     {
         var buttons = CommonTimeZones
             .Select(tz => new[]
@@ -117,22 +151,45 @@ public class SettingsHandler
 
         var keyboard = new InlineKeyboardMarkup(buttons);
 
-        await _botClient.SendMessage(
-            chatId,
-            Messages.SelectTimeZone,
-            replyMarkup: keyboard,
-            cancellationToken: ct);
+        if (messageId.HasValue)
+        {
+            await _botClient.EditMessageText(
+                chatId,
+                messageId.Value,
+                Messages.SelectTimeZone,
+                replyMarkup: keyboard,
+                cancellationToken: ct);
+        }
+        else
+        {
+            await _botClient.SendMessage(
+                chatId,
+                Messages.SelectTimeZone,
+                replyMarkup: keyboard,
+                cancellationToken: ct);
+        }
     }
 
     /// <summary>
     /// Установить часовой пояс пользователя
     /// </summary>
-    public async Task SetTimeZoneAsync(long chatId, long telegramUserId, string timeZoneId, CancellationToken ct)
+    public Task SetTimeZoneAsync(long chatId, long telegramUserId, string timeZoneId, CancellationToken ct)
+    {
+        return SetTimeZoneAsync(chatId, telegramUserId, timeZoneId, null, ct);
+    }
+
+    /// <summary>
+    /// Установить часовой пояс пользователя (с возможностью редактирования)
+    /// </summary>
+    public async Task SetTimeZoneAsync(long chatId, long telegramUserId, string timeZoneId, int? messageId, CancellationToken ct)
     {
         var session = _sessionService.GetSession(telegramUserId);
         if (session?.UserId == null)
         {
-            await _botClient.SendMessage(chatId, Messages.AuthRequired, cancellationToken: ct);
+            if (messageId.HasValue)
+                await _botClient.EditMessageText(chatId, messageId.Value, Messages.AuthRequired, cancellationToken: ct);
+            else
+                await _botClient.SendMessage(chatId, Messages.AuthRequired, cancellationToken: ct);
             return;
         }
 
@@ -143,7 +200,18 @@ public class SettingsHandler
             var timeZoneName = CommonTimeZones.GetValueOrDefault(timeZoneId, timeZoneId);
             var message = string.Format(Messages.TimeZoneUpdated, timeZoneName);
 
-            await _botClient.SendMessage(chatId, message, cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    message,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(chatId, message, cancellationToken: ct);
+            }
 
             _logger.LogInformation(
                 "User {TelegramUserId} changed timezone to {TimeZoneId}",
@@ -153,10 +221,21 @@ public class SettingsHandler
         }
         else
         {
-            await _botClient.SendMessage(
-                chatId,
-                Messages.InvalidTimeZone,
-                cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    Messages.InvalidTimeZone,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    Messages.InvalidTimeZone,
+                    cancellationToken: ct);
+            }
         }
     }
 }

@@ -11,9 +11,10 @@ namespace MedicationAssist.Tests.Unit.Application;
 public class UserServiceTests
 {
     private const string TestPasswordHash = "$2a$11$TestHashForUnitTests123456789";
-    
+
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IUserRepository> _userRepositoryMock;
+    private readonly Mock<ILinkTokenService> _linkTokenServiceMock;
     private readonly Mock<ILogger<UserService>> _loggerMock;
     private readonly UserService _userService;
 
@@ -21,13 +22,14 @@ public class UserServiceTests
     {
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _userRepositoryMock = new Mock<IUserRepository>();
+        _linkTokenServiceMock = new Mock<ILinkTokenService>();
         _loggerMock = new Mock<ILogger<UserService>>();
 
         _unitOfWorkMock.Setup(u => u.Users).Returns(_userRepositoryMock.Object);
 
-        _userService = new UserService(_unitOfWorkMock.Object, _loggerMock.Object);
+        _userService = new UserService(_unitOfWorkMock.Object, _linkTokenServiceMock.Object, _loggerMock.Object);
     }
-    
+
     private static User CreateTestUser(string name = "Тест", string email = "test@example.com", UserRole role = UserRole.User)
     {
         return new User(name, email, TestPasswordHash, role);

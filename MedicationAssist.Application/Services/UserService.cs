@@ -10,11 +10,13 @@ namespace MedicationAssist.Application.Services;
 public class UserService : IUserService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILinkTokenService _linkTokenService;
     private readonly ILogger<UserService> _logger;
 
-    public UserService(IUnitOfWork unitOfWork, ILogger<UserService> logger)
+    public UserService(IUnitOfWork unitOfWork, ILinkTokenService linkTokenService, ILogger<UserService> logger)
     {
         _unitOfWork = unitOfWork;
+        _linkTokenService = linkTokenService;
         _logger = logger;
     }
 
@@ -288,6 +290,77 @@ public class UserService : IUserService
         {
             _logger.LogError(ex, "Error while deleting user {UserId}", id);
             return Result.Failure($"Error while deleting user: {ex.Message}");
+        }
+    }
+
+    public async Task<Result<string>> GenerateLinkTokenAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+            if (user == null)
+            {
+                _logger.LogWarning("User {UserId} not found", userId);
+                return Result<string>.Failure("User not found");
+            }
+
+            // Делегируем генерацию токена в Infrastructure сервис
+            var token = await _linkTokenService.GenerateTokenAsync(userId, cancellationToken);
+
+            _logger.LogInformation("Generated link token for user {UserId}", userId);
+            return Result<string>.Success(token);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while generating link token for user {UserId}", userId);
+            return Result<string>.Failure($"Error while generating link token: {ex.Message}");
+        }
+    }
+
+    public async Task<Result<UserDto>> LinkTelegramByTokenAsync(string token, LinkTelegramDto dto, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Валидируем токен через Infrastructure сервис
+            var userId = await _linkTokenService.ValidateAndConsumeTokenAsync(token, cancellationToken);
+            if (userId == null)
+            {
+                _logger.LogWarning("Link token {Token} is invalid or expired", token);
+                return Result<UserDto>.Failure("Invalid or expired link token");
+            }
+
+            // Проверяем, не привязан ли уже этот Telegram ID к другому пользователю
+            var existingUser = await _unitOfWork.Users.GetByTelegramIdAsync(dto.TelegramUserId, cancellationToken);
+            if (existingUser != null && existingUser.Id != userId)
+            {
+                _logger.LogWarning("Telegram ID {TelegramUserId} is already linked to another account", dto.TelegramUserId);
+                return Result<UserDto>.Failure("This Telegram account is already linked to another user");
+            }
+
+            var user = await _unitOfWork.Users.GetByIdAsync(userId.Value, cancellationToken);
+            if (user == null)
+            {
+                _logger.LogWarning("User {UserId} not found for valid token", userId);
+                return Result<UserDto>.Failure("User not found");
+            }
+
+            user.SetTelegramAccount(dto.TelegramUserId, dto.TelegramUsername);
+
+            await _unitOfWork.Users.UpdateAsync(user, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Telegram account {TelegramUserId} linked to user {UserId} via token", dto.TelegramUserId, user.Id);
+            return Result<UserDto>.Success(MapToDto(user));
+        }
+        catch (DomainException ex)
+        {
+            _logger.LogWarning(ex, "Validation error while linking Telegram via token");
+            return Result<UserDto>.Failure(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while linking Telegram via token");
+            return Result<UserDto>.Failure($"Error while linking Telegram: {ex.Message}");
         }
     }
 

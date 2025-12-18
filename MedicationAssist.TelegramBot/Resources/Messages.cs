@@ -65,8 +65,8 @@ public static class Messages
     public const string IntakeDeleted = "🗑️ Запись о приёме удалена.";
     public const string NoIntakes = "📭 История приёмов пуста.";
     public const string IntakeHistory = "📜 История приёмов:\n\n{0}";
-    public const string IntakeHistoryItem = "• {0} - {1}\n  🕐 {2}{3}\n";
-    public const string IntakeNotes = "\n  📝 {0}";
+    public const string IntakeHistoryItem = "• 🕐 {0} — {1}{2}\n";
+    public const string IntakeNotes = " (📝 {0})";
     public const string IntakeHistoryEmpty = "📭 За выбранный период приёмов не найдено.";
     public const string SelectHistoryPeriod = "📅 Выберите период для просмотра истории:";
 

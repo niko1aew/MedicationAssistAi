@@ -37,29 +37,69 @@ public class ReminderHandler
     /// <summary>
     /// Показать меню напоминаний
     /// </summary>
-    public async Task ShowRemindersMenuAsync(long chatId, CancellationToken ct)
+    public Task ShowRemindersMenuAsync(long chatId, CancellationToken ct)
     {
-        await _botClient.SendMessage(
-            chatId,
-            Messages.RemindersMenu,
-            replyMarkup: InlineKeyboards.RemindersMenu,
-            cancellationToken: ct);
+        return ShowRemindersMenuAsync(chatId, null, ct);
+    }
+
+    /// <summary>
+    /// Показать меню напоминаний (с возможностью редактирования)
+    /// </summary>
+    public async Task ShowRemindersMenuAsync(long chatId, int? messageId, CancellationToken ct)
+    {
+        if (messageId.HasValue)
+        {
+            await _botClient.EditMessageText(
+                chatId,
+                messageId.Value,
+                Messages.RemindersMenu,
+                replyMarkup: InlineKeyboards.RemindersMenu,
+                cancellationToken: ct);
+        }
+        else
+        {
+            await _botClient.SendMessage(
+                chatId,
+                Messages.RemindersMenu,
+                replyMarkup: InlineKeyboards.RemindersMenu,
+                cancellationToken: ct);
+        }
     }
 
     /// <summary>
     /// Показать список напоминаний
     /// </summary>
-    public async Task ShowRemindersListAsync(long chatId, long telegramUserId, CancellationToken ct)
+    public Task ShowRemindersListAsync(long chatId, long telegramUserId, CancellationToken ct)
+    {
+        return ShowRemindersListAsync(chatId, telegramUserId, null, ct);
+    }
+
+    /// <summary>
+    /// Показать список напоминаний (с возможностью редактирования)
+    /// </summary>
+    public async Task ShowRemindersListAsync(long chatId, long telegramUserId, int? messageId, CancellationToken ct)
     {
         var reminders = (await _reminderService.GetUserRemindersAsync(telegramUserId, ct)).ToList();
 
         if (!reminders.Any())
         {
-            await _botClient.SendMessage(
-                chatId,
-                Messages.NoReminders,
-                replyMarkup: InlineKeyboards.RemindersMenu,
-                cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    Messages.NoReminders,
+                    replyMarkup: InlineKeyboards.RemindersMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    Messages.NoReminders,
+                    replyMarkup: InlineKeyboards.RemindersMenu,
+                    cancellationToken: ct);
+            }
             return;
         }
 
@@ -68,26 +108,58 @@ public class ReminderHandler
 
         var message = string.Format(Messages.RemindersList, remindersList);
 
-        await _botClient.SendMessage(
-            chatId,
-            message,
-            replyMarkup: InlineKeyboards.RemindersMenu,
-            cancellationToken: ct);
+        if (messageId.HasValue)
+        {
+            await _botClient.EditMessageText(
+                chatId,
+                messageId.Value,
+                message,
+                replyMarkup: InlineKeyboards.RemindersMenu,
+                cancellationToken: ct);
+        }
+        else
+        {
+            await _botClient.SendMessage(
+                chatId,
+                message,
+                replyMarkup: InlineKeyboards.RemindersMenu,
+                cancellationToken: ct);
+        }
     }
 
     /// <summary>
     /// Начать процесс добавления напоминания - показать список лекарств
     /// </summary>
-    public async Task StartAddReminderAsync(long chatId, long telegramUserId, CancellationToken ct)
+    public Task StartAddReminderAsync(long chatId, long telegramUserId, CancellationToken ct)
+    {
+        return StartAddReminderAsync(chatId, telegramUserId, null, ct);
+    }
+
+    /// <summary>
+    /// Начать процесс добавления напоминания (с возможностью редактирования)
+    /// </summary>
+    public async Task StartAddReminderAsync(long chatId, long telegramUserId, int? messageId, CancellationToken ct)
     {
         var session = _sessionService.GetSession(telegramUserId);
         if (session?.UserId == null)
         {
-            await _botClient.SendMessage(
-                chatId,
-                Messages.AuthRequired,
-                replyMarkup: InlineKeyboards.AuthMenu,
-                cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    Messages.AuthRequired,
+                    replyMarkup: InlineKeyboards.AuthMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    Messages.AuthRequired,
+                    replyMarkup: InlineKeyboards.AuthMenu,
+                    cancellationToken: ct);
+            }
             return;
         }
 
@@ -95,11 +167,23 @@ public class ReminderHandler
 
         if (!result.IsSuccess || !result.Data!.Any())
         {
-            await _botClient.SendMessage(
-                chatId,
-                Messages.NoMedications,
-                replyMarkup: InlineKeyboards.MedicationsMenu,
-                cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    Messages.NoMedications,
+                    replyMarkup: InlineKeyboards.MedicationsMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    Messages.NoMedications,
+                    replyMarkup: InlineKeyboards.MedicationsMenu,
+                    cancellationToken: ct);
+            }
             return;
         }
 
@@ -114,11 +198,23 @@ public class ReminderHandler
 
         buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", "reminders") });
 
-        await _botClient.SendMessage(
-            chatId,
-            Messages.SelectMedicationForReminder,
-            replyMarkup: new InlineKeyboardMarkup(buttons),
-            cancellationToken: ct);
+        if (messageId.HasValue)
+        {
+            await _botClient.EditMessageText(
+                chatId,
+                messageId.Value,
+                Messages.SelectMedicationForReminder,
+                replyMarkup: new InlineKeyboardMarkup(buttons),
+                cancellationToken: ct);
+        }
+        else
+        {
+            await _botClient.SendMessage(
+                chatId,
+                Messages.SelectMedicationForReminder,
+                replyMarkup: new InlineKeyboardMarkup(buttons),
+                cancellationToken: ct);
+        }
     }
 
     /// <summary>
@@ -166,7 +262,7 @@ public class ReminderHandler
         if (reminder != null)
         {
             var message = string.Format(Messages.ReminderSet, reminder.MedicationName, time.ToString("HH:mm"));
-            
+
             await _botClient.SendMessage(
                 chatId,
                 message,
@@ -190,17 +286,37 @@ public class ReminderHandler
     /// <summary>
     /// Показать меню удаления напоминаний
     /// </summary>
-    public async Task ShowDeleteReminderMenuAsync(long chatId, long telegramUserId, CancellationToken ct)
+    public Task ShowDeleteReminderMenuAsync(long chatId, long telegramUserId, CancellationToken ct)
+    {
+        return ShowDeleteReminderMenuAsync(chatId, telegramUserId, null, ct);
+    }
+
+    /// <summary>
+    /// Показать меню удаления напоминаний (с возможностью редактирования)
+    /// </summary>
+    public async Task ShowDeleteReminderMenuAsync(long chatId, long telegramUserId, int? messageId, CancellationToken ct)
     {
         var reminders = (await _reminderService.GetUserRemindersAsync(telegramUserId, ct)).ToList();
 
         if (!reminders.Any())
         {
-            await _botClient.SendMessage(
-                chatId,
-                Messages.NoReminders,
-                replyMarkup: InlineKeyboards.RemindersMenu,
-                cancellationToken: ct);
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    Messages.NoReminders,
+                    replyMarkup: InlineKeyboards.RemindersMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    Messages.NoReminders,
+                    replyMarkup: InlineKeyboards.RemindersMenu,
+                    cancellationToken: ct);
+            }
             return;
         }
 
@@ -215,11 +331,23 @@ public class ReminderHandler
 
         buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", "reminders") });
 
-        await _botClient.SendMessage(
-            chatId,
-            Messages.SelectReminderToDelete,
-            replyMarkup: new InlineKeyboardMarkup(buttons),
-            cancellationToken: ct);
+        if (messageId.HasValue)
+        {
+            await _botClient.EditMessageText(
+                chatId,
+                messageId.Value,
+                Messages.SelectReminderToDelete,
+                replyMarkup: new InlineKeyboardMarkup(buttons),
+                cancellationToken: ct);
+        }
+        else
+        {
+            await _botClient.SendMessage(
+                chatId,
+                Messages.SelectReminderToDelete,
+                replyMarkup: new InlineKeyboardMarkup(buttons),
+                cancellationToken: ct);
+        }
     }
 
     /// <summary>
