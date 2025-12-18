@@ -386,5 +386,29 @@ public class ReminderHandler
     {
         await HandleMedicationSelectedAsync(chatId, telegramUserId, medicationId, ct);
     }
+
+    /// <summary>
+    /// Обработать подтверждение приёма лекарства из напоминания
+    /// </summary>
+    public async Task<bool> HandleReminderTakenAsync(Guid reminderId, Guid medicationId, long telegramUserId, CancellationToken ct)
+    {
+        return await _reminderService.HandleReminderTakenAsync(reminderId, medicationId, telegramUserId, ct);
+    }
+
+    /// <summary>
+    /// Обработать пропуск приёма лекарства из напоминания
+    /// </summary>
+    public async Task HandleReminderSkippedAsync(Guid reminderId, CancellationToken ct)
+    {
+        await _reminderService.HandleReminderSkippedAsync(reminderId, ct);
+    }
+
+    /// <summary>
+    /// Получить название лекарства из pending напоминания
+    /// </summary>
+    public Task<string?> GetMedicationNameAsync(Guid reminderId, CancellationToken ct)
+    {
+        return Task.FromResult(_reminderService.GetMedicationNameFromPending(reminderId));
+    }
 }
 

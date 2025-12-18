@@ -245,6 +245,20 @@ public class CallbackQueryHandler
                     }
                     break;
 
+                // Действия с напоминаниями о приёме
+                case "take_reminder":
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await HandleTakeReminderAsync(chatId, userId, parts, callbackQuery.Message.MessageId, ct);
+                    break;
+
+                case "skip_reminder":
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    if (Guid.TryParse(param, out var skipReminderId))
+                    {
+                        await HandleSkipReminderAsync(chatId, skipReminderId, callbackQuery.Message.MessageId, ct);
+                    }
+                    break;
+
                 default:
                     _logger.LogWarning("Unknown callback: {Data}", data);
                     break;
@@ -301,6 +315,49 @@ public class CallbackQueryHandler
             chatId,
             "⚙️ Настройки",
             replyMarkup: InlineKeyboards.SettingsMenu,
+            cancellationToken: ct);
+    }
+
+    private async Task HandleTakeReminderAsync(long chatId, long userId, string[] parts, int messageId, CancellationToken ct)
+    {
+        // Формат: take_reminder:reminderId:medicationId
+        if (parts.Length < 3 ||
+            !Guid.TryParse(parts[1], out var reminderId) ||
+            !Guid.TryParse(parts[2], out var medicationId))
+        {
+            _logger.LogWarning("Invalid take_reminder callback format: {Parts}", string.Join(":", parts));
+            return;
+        }
+
+        var medicationName = await _reminderHandler.GetMedicationNameAsync(reminderId, ct);
+        var success = await _reminderHandler.HandleReminderTakenAsync(reminderId, medicationId, userId, ct);
+
+        if (success)
+        {
+            await _botClient.EditMessageText(
+                chatId,
+                messageId,
+                string.Format(Messages.ReminderTaken, medicationName ?? "лекарство"),
+                cancellationToken: ct);
+        }
+        else
+        {
+            await _botClient.SendMessage(
+                chatId,
+                Messages.UnknownError,
+                cancellationToken: ct);
+        }
+    }
+
+    private async Task HandleSkipReminderAsync(long chatId, Guid reminderId, int messageId, CancellationToken ct)
+    {
+        var medicationName = await _reminderHandler.GetMedicationNameAsync(reminderId, ct);
+        await _reminderHandler.HandleReminderSkippedAsync(reminderId, ct);
+
+        await _botClient.EditMessageText(
+            chatId,
+            messageId,
+            string.Format(Messages.ReminderSkipped, medicationName ?? "лекарство"),
             cancellationToken: ct);
     }
 

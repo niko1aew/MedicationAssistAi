@@ -36,6 +36,7 @@ public static class ServiceCollectionExtensions
 
         // Регистрация сервисов
         services.AddSingleton<UserSessionService>();
+        services.AddSingleton<PendingReminderTracker>();
         services.AddSingleton<ReminderService>();
 
         // Регистрация обработчиков

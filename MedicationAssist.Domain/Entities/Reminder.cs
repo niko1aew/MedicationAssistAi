@@ -14,6 +14,12 @@ public class Reminder : Entity
     public bool IsActive { get; private set; }
     public DateTime? LastSentAt { get; private set; }
 
+    // Поля для pending состояния (ожидание ответа пользователя)
+    public DateTime? PendingUntil { get; private set; }
+    public DateTime? PendingFirstSentAt { get; private set; }
+    public DateTime? PendingLastSentAt { get; private set; }
+    public int? PendingMessageId { get; private set; }
+
     private Reminder() : base()
     {
     }
@@ -76,6 +82,57 @@ public class Reminder : Entity
     {
         LastSentAt = sentAtUtc;
         MarkAsUpdated();
+    }
+
+    /// <summary>
+    /// Установить pending состояние (ожидание ответа пользователя)
+    /// </summary>
+    public void SetPending(DateTime firstSentAt, DateTime lastSentAt, int messageId)
+    {
+        if (PendingFirstSentAt == null)
+        {
+            PendingFirstSentAt = firstSentAt;
+        }
+
+        PendingLastSentAt = lastSentAt;
+        PendingMessageId = messageId;
+        PendingUntil = null; // Пока пользователь не ответил, pending активен
+        MarkAsUpdated();
+    }
+
+    /// <summary>
+    /// Обновить время последней отправки pending напоминания
+    /// </summary>
+    public void UpdatePendingSent(DateTime lastSentAt, int? newMessageId = null)
+    {
+        PendingLastSentAt = lastSentAt;
+        if (newMessageId.HasValue)
+        {
+            PendingMessageId = newMessageId.Value;
+        }
+        MarkAsUpdated();
+    }
+
+    /// <summary>
+    /// Очистить pending состояние (пользователь ответил или пропустил)
+    /// </summary>
+    public void ClearPending()
+    {
+        PendingUntil = DateTime.UtcNow;
+        PendingFirstSentAt = null;
+        PendingLastSentAt = null;
+        PendingMessageId = null;
+        MarkAsUpdated();
+    }
+
+    /// <summary>
+    /// Проверить, находится ли напоминание в pending состоянии
+    /// </summary>
+    public bool IsPending()
+    {
+        return PendingFirstSentAt.HasValue &&
+               PendingLastSentAt.HasValue &&
+               !PendingUntil.HasValue;
     }
 }
 

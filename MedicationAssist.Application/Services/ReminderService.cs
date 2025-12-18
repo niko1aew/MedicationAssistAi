@@ -188,6 +188,111 @@ public class ReminderService : IReminderService
         }
     }
 
+    public async Task<Result<IEnumerable<ReminderDto>>> GetPendingAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Получаем все активные напоминания и фильтруем pending
+            var reminders = await _unitOfWork.Reminders.GetActiveAsync(cancellationToken);
+            var pendingReminders = reminders
+                .Where(r => r.IsPending())
+                .ToList();
+
+            // Получаем информацию о лекарствах для каждого напоминания
+            var dtos = new List<ReminderDto>();
+            foreach (var reminder in pendingReminders)
+            {
+                var medication = await _unitOfWork.Medications.GetByIdAsync(reminder.MedicationId, cancellationToken);
+                if (medication != null)
+                {
+                    dtos.Add(MapToDto(reminder, medication.Name, medication.Dosage));
+                }
+            }
+
+            return Result<IEnumerable<ReminderDto>>.Success(dtos);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while getting pending reminders");
+            return Result<IEnumerable<ReminderDto>>.Failure($"Error while getting pending reminders: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> SetPendingAsync(Guid id, DateTime firstSentAt, DateTime lastSentAt, int messageId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var reminder = await _unitOfWork.Reminders.GetByIdAsync(id, cancellationToken);
+            if (reminder == null)
+            {
+                _logger.LogWarning("Attempt to set pending state for non-existing reminder {ReminderId}", id);
+                return Result.Failure("Reminder not found");
+            }
+
+            reminder.SetPending(firstSentAt, lastSentAt, messageId);
+            await _unitOfWork.Reminders.UpdateAsync(reminder, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            _logger.LogDebug("Set pending state for reminder {ReminderId}", id);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while setting pending state for reminder {ReminderId}", id);
+            return Result.Failure($"Error while updating reminder: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> UpdatePendingSentAsync(Guid id, DateTime lastSentAt, int? newMessageId = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var reminder = await _unitOfWork.Reminders.GetByIdAsync(id, cancellationToken);
+            if (reminder == null)
+            {
+                _logger.LogWarning("Attempt to update pending sent time for non-existing reminder {ReminderId}", id);
+                return Result.Failure("Reminder not found");
+            }
+
+            reminder.UpdatePendingSent(lastSentAt, newMessageId);
+            await _unitOfWork.Reminders.UpdateAsync(reminder, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            _logger.LogDebug("Updated pending sent time for reminder {ReminderId}", id);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while updating pending sent time for reminder {ReminderId}", id);
+            return Result.Failure($"Error while updating reminder: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> ClearPendingAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var reminder = await _unitOfWork.Reminders.GetByIdAsync(id, cancellationToken);
+            if (reminder == null)
+            {
+                _logger.LogWarning("Attempt to clear pending state for non-existing reminder {ReminderId}", id);
+                return Result.Failure("Reminder not found");
+            }
+
+            reminder.ClearPending();
+            await _unitOfWork.Reminders.UpdateAsync(reminder, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            _logger.LogDebug("Cleared pending state for reminder {ReminderId}", id);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while clearing pending state for reminder {ReminderId}", id);
+            return Result.Failure($"Error while updating reminder: {ex.Message}");
+        }
+    }
+
     private static ReminderDto MapToDto(Reminder reminder, string medicationName, string? dosage)
     {
         return new ReminderDto(
@@ -201,7 +306,11 @@ public class ReminderService : IReminderService
             reminder.IsActive,
             reminder.LastSentAt,
             reminder.CreatedAt,
-            reminder.UpdatedAt);
+            reminder.UpdatedAt,
+            reminder.PendingUntil,
+            reminder.PendingFirstSentAt,
+            reminder.PendingLastSentAt,
+            reminder.PendingMessageId);
     }
 }
 

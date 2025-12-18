@@ -91,9 +91,9 @@ public static class InlineKeyboards
                     $"{callbackPrefix}:{m.Id}")
             })
             .ToList();
-        
+
         buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", "main_menu") });
-        
+
         return new InlineKeyboardMarkup(buttons);
     }
 
@@ -150,6 +150,18 @@ public static class InlineKeyboards
         new[] { InlineKeyboardButton.WithCallbackData("➕ Добавить ещё", "add_medication") },
         new[] { InlineKeyboardButton.WithCallbackData("⏰ Добавить напоминание", "add_reminder") },
         new[] { InlineKeyboardButton.WithCallbackData("◀️ Главное меню", "main_menu") },
+    });
+
+    /// <summary>
+    /// Кнопки действий для напоминания о приёме лекарства
+    /// </summary>
+    public static InlineKeyboardMarkup ReminderActions(Guid reminderId, Guid medicationId) => new(new[]
+    {
+        new[]
+        {
+            InlineKeyboardButton.WithCallbackData("✅ Принять", $"take_reminder:{reminderId}:{medicationId}"),
+            InlineKeyboardButton.WithCallbackData("⏭️ Пропустить", $"skip_reminder:{reminderId}")
+        }
     });
 }
 

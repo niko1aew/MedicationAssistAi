@@ -11,7 +11,11 @@ public record ReminderDto(
     bool IsActive,
     DateTime? LastSentAt,
     DateTime CreatedAt,
-    DateTime? UpdatedAt
+    DateTime? UpdatedAt,
+    DateTime? PendingUntil,
+    DateTime? PendingFirstSentAt,
+    DateTime? PendingLastSentAt,
+    int? PendingMessageId
 );
 
 public record CreateReminderDto(
