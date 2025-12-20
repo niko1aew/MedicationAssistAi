@@ -1,6 +1,9 @@
+using MedicationAssist.Application.Services;
+using MedicationAssist.TelegramBot.Configuration;
 using MedicationAssist.TelegramBot.Keyboards;
 using MedicationAssist.TelegramBot.Resources;
 using MedicationAssist.TelegramBot.Services;
+using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
@@ -18,6 +21,8 @@ public class CallbackQueryHandler
     private readonly IntakeHandler _intakeHandler;
     private readonly ReminderHandler _reminderHandler;
     private readonly SettingsHandler _settingsHandler;
+    private readonly IWebLoginTokenService _webLoginTokenService;
+    private readonly TelegramBotSettings _settings;
     private readonly ILogger<CallbackQueryHandler> _logger;
 
     public CallbackQueryHandler(
@@ -28,6 +33,8 @@ public class CallbackQueryHandler
         IntakeHandler intakeHandler,
         ReminderHandler reminderHandler,
         SettingsHandler settingsHandler,
+        IWebLoginTokenService webLoginTokenService,
+        IOptions<TelegramBotSettings> settings,
         ILogger<CallbackQueryHandler> logger)
     {
         _botClient = botClient;
@@ -37,6 +44,8 @@ public class CallbackQueryHandler
         _intakeHandler = intakeHandler;
         _reminderHandler = reminderHandler;
         _settingsHandler = settingsHandler;
+        _webLoginTokenService = webLoginTokenService;
+        _settings = settings.Value;
         _logger = logger;
     }
 
@@ -222,6 +231,11 @@ public class CallbackQueryHandler
                 case "settings":
                     if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
                     await _settingsHandler.ShowSettingsAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
+                    break;
+
+                case "open_website":
+                    if (!await EnsureAuthenticatedAsync(chatId, userId, callbackQuery.Message.MessageId, ct)) return;
+                    await HandleOpenWebsiteAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
                     break;
 
                 case "settings_timezone":
@@ -426,6 +440,54 @@ public class CallbackQueryHandler
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Обработать открытие веб-сайта
+    /// </summary>
+    private async Task HandleOpenWebsiteAsync(long chatId, long userId, int messageId, CancellationToken ct)
+    {
+        try
+        {
+            var session = _sessionService.GetSession(userId);
+            if (session?.UserId == null)
+            {
+                _logger.LogWarning("Attempting to open website for unauthenticated user {UserId}", userId);
+                return;
+            }
+
+            // Генерируем токен веб-логина
+            var token = await _webLoginTokenService.GenerateTokenAsync(session.UserId.Value, ct);
+            var url = $"{_settings.WebsiteUrl}/auth/telegram?token={token}";
+
+            // Отправляем сообщение с URL кнопкой
+            var keyboard = new Telegram.Bot.Types.ReplyMarkups.InlineKeyboardMarkup(
+                new[]
+                {
+                    new[] { Telegram.Bot.Types.ReplyMarkups.InlineKeyboardButton.WithUrl("🌐 Открыть сайт", url) },
+                    new[] { Telegram.Bot.Types.ReplyMarkups.InlineKeyboardButton.WithCallbackData("◀️ Назад", "main_menu") }
+                });
+
+            await _botClient.EditMessageText(
+                chatId,
+                messageId,
+                "🌐 <b>Открыть сайт в браузере</b>\n\n" +
+                "Нажмите кнопку ниже, чтобы автоматически войти на сайт.\n\n" +
+                "⏱ <i>Ссылка действительна 5 минут</i>",
+                parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
+                replyMarkup: keyboard,
+                cancellationToken: ct);
+
+            _logger.LogInformation("Generated web login token for user {UserId}", session.UserId.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling open website for user {UserId}", userId);
+            await _botClient.SendMessage(
+                chatId,
+                "❌ Произошла ошибка при генерации ссылки. Попробуйте позже.",
+                cancellationToken: ct);
+        }
     }
 }
 

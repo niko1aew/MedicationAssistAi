@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using MedicationAssist.Application.DTOs;
 using MedicationAssist.Application.Services;
+using MedicationAssist.Domain.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,11 +15,25 @@ namespace MedicationAssist.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IWebLoginTokenService _webLoginTokenService;
+    private readonly IJwtTokenService _jwtTokenService;
+    private readonly IRefreshTokenService _refreshTokenService;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IAuthService authService, ILogger<AuthController> logger)
+    public AuthController(
+        IAuthService authService,
+        IWebLoginTokenService webLoginTokenService,
+        IJwtTokenService jwtTokenService,
+        IRefreshTokenService refreshTokenService,
+        IUserRepository userRepository,
+        ILogger<AuthController> logger)
     {
         _authService = authService;
+        _webLoginTokenService = webLoginTokenService;
+        _jwtTokenService = jwtTokenService;
+        _refreshTokenService = refreshTokenService;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -146,6 +161,66 @@ public class AuthController : ControllerBase
 
         _logger.LogInformation("Все токены отозваны для пользователя {UserId}", userId);
         return Ok(new { message = "Все токены успешно отозваны" });
+    }
+
+    /// <summary>
+    /// Автоматический вход на веб-сайт через токен из Telegram бота
+    /// </summary>
+    /// <param name="dto">Токен веб-логина</param>
+    /// <returns>JWT токен и информация о пользователе</returns>
+    [HttpPost("telegram-web-login")]
+    [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> TelegramWebLogin([FromBody] TelegramWebLoginDto dto)
+    {
+        _logger.LogInformation("Попытка веб-логина через Telegram токен");
+
+        // Валидируем и потребляем токен
+        var userId = await _webLoginTokenService.ValidateAndConsumeTokenAsync(dto.Token);
+
+        if (userId == null)
+        {
+            _logger.LogWarning("Недействительный или истекший веб-логин токен");
+            return Unauthorized(new { error = "Недействительный или истекший токен" });
+        }
+
+        // Получаем пользователя
+        var user = await _userRepository.GetByIdAsync(userId.Value);
+        if (user == null)
+        {
+            _logger.LogError("Пользователь {UserId} не найден после валидации токена", userId);
+            return Unauthorized(new { error = "Пользователь не найден" });
+        }
+
+        // Генерируем JWT токены
+        var tokens = _jwtTokenService.GenerateTokens(user);
+
+        // Сохраняем refresh токен
+        await _refreshTokenService.CreateTokenAsync(
+            user.Id,
+            tokens.RefreshToken,
+            tokens.RefreshTokenExpires);
+
+        var response = new AuthResponseDto
+        {
+            Token = tokens.AccessToken,
+            RefreshToken = tokens.RefreshToken,
+            TokenExpires = tokens.AccessTokenExpires,
+            User = new UserDto(
+                user.Id,
+                user.Name,
+                user.Email,
+                user.Role,
+                user.TelegramUserId,
+                user.TelegramUsername,
+                user.TimeZoneId,
+                user.CreatedAt,
+                user.UpdatedAt)
+        };
+
+        _logger.LogInformation("Успешный веб-логин через Telegram для пользователя {UserId}", userId);
+        return Ok(response);
     }
 }
 

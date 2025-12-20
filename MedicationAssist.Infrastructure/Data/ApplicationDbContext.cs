@@ -16,6 +16,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Reminder> Reminders => Set<Reminder>();
     public DbSet<Security.RefreshToken> RefreshTokens => Set<Security.RefreshToken>();
     public DbSet<Security.LinkToken> LinkTokens => Set<Security.LinkToken>();
+    public DbSet<Security.WebLoginToken> WebLoginTokens => Set<Security.WebLoginToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

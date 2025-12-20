@@ -1,8 +1,10 @@
 using MedicationAssist.Application.DTOs;
 using MedicationAssist.Application.Services;
+using MedicationAssist.TelegramBot.Configuration;
 using MedicationAssist.TelegramBot.Keyboards;
 using MedicationAssist.TelegramBot.Resources;
 using MedicationAssist.TelegramBot.Services;
+using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
@@ -17,19 +19,25 @@ public class AuthHandler
     private readonly UserSessionService _sessionService;
     private readonly IAuthService _authService;
     private readonly IUserService _userService;
+    private readonly TelegramBotSettings _settings;
     private readonly ILogger<AuthHandler> _logger;
+    private readonly ILinkTokenService _linkTokenService;
 
     public AuthHandler(
         ITelegramBotClient botClient,
         UserSessionService sessionService,
         IAuthService authService,
         IUserService userService,
+        ILinkTokenService linkTokenService,
+        IOptions<TelegramBotSettings> settings,
         ILogger<AuthHandler> logger)
     {
         _botClient = botClient;
         _sessionService = sessionService;
         _authService = authService;
         _userService = userService;
+        _linkTokenService = linkTokenService;
+        _settings = settings.Value;
         _logger = logger;
     }
 
@@ -204,7 +212,7 @@ public class AuthHandler
             _sessionService.Authenticate(telegramUser.Id, result.Data!.User.Id, result.Data.User.Name);
 
             var credentialsMessage = $"{Messages.QuickStartSuccess}\n\n" +
-                                   $"🌐 <b>Ссылка на сайт:</b> https://medications.meteoassist.space/\n" +
+                                   $"🌐 <b>Ссылка на сайт:</b> {_settings.WebsiteUrl}\n" +
                                    $"👤 <b>Логин (Email):</b> <code>{email}</code>\n" +
                                    $"🔑 <b>Пароль:</b> <code>{password}</code>\n\n" +
                                    $"💡 <i>Сохраните эти данные для входа на сайт!</i>";

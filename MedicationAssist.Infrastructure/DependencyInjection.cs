@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<ILinkTokenService, LinkTokenService>();
+        services.AddScoped<IWebLoginTokenService, WebLoginTokenService>();
 
         // Конфигурация JWT
         services.Configure<JwtSettings>(options =>

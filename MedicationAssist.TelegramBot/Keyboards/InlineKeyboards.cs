@@ -17,6 +17,7 @@ public static class InlineKeyboards
         new[] { InlineKeyboardButton.WithCallbackData("✅ Записать приём", "intake") },
         new[] { InlineKeyboardButton.WithCallbackData("📜 История приёмов", "history") },
         new[] { InlineKeyboardButton.WithCallbackData("⏰ Напоминания", "reminders") },
+        new[] { InlineKeyboardButton.WithCallbackData("🌐 Открыть в браузере", "open_website") },
         new[] { InlineKeyboardButton.WithCallbackData("⚙️ Настройки", "settings") },
     });
 

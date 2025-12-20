@@ -19,6 +19,8 @@ try
     {
         ["TelegramBot:Token"] = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN"),
         ["TelegramBot:WebhookUrl"] = Environment.GetEnvironmentVariable("TELEGRAM_WEBHOOK_URL"),
+        ["TelegramBot:BotUsername"] = Environment.GetEnvironmentVariable("TELEGRAM_BOT_USERNAME"),
+        ["TelegramBot:WebsiteUrl"] = Environment.GetEnvironmentVariable("WEBSITE_URL"),
         ["ConnectionStrings:DefaultConnection"] = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING"),
         ["JwtSettings:Secret"] = Environment.GetEnvironmentVariable("JWT_SECRET_KEY"),
     }.Where(kv => !string.IsNullOrEmpty(kv.Value)).ToDictionary(kv => kv.Key, kv => kv.Value));
@@ -33,14 +35,14 @@ try
     // Application layers registration
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
-    
+
     // Telegram bot registration
     builder.Services.AddTelegramBot(builder.Configuration);
 
     var host = builder.Build();
 
     Log.Information("Telegram bot initialized successfully");
-    
+
     await host.RunAsync();
 }
 catch (Exception ex)
