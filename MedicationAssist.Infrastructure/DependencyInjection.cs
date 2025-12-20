@@ -36,10 +36,8 @@ public static class DependencyInjection
         services.AddScoped<IMedicationIntakeRepository, MedicationIntakeRepository>();
         services.AddScoped<IReminderRepository, ReminderRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<ITelegramLoginTokenRepository, TelegramLoginTokenRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
-
-        // Регистрация MemoryCache
-        services.AddMemoryCache();
 
         // Регистрация сервисов безопасности
         services.AddScoped<IPasswordHasher, PasswordHasher>();

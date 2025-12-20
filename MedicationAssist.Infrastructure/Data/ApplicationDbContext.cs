@@ -17,6 +17,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Security.RefreshToken> RefreshTokens => Set<Security.RefreshToken>();
     public DbSet<Security.LinkToken> LinkTokens => Set<Security.LinkToken>();
     public DbSet<Security.WebLoginToken> WebLoginTokens => Set<Security.WebLoginToken>();
+    public DbSet<Security.TelegramLoginToken> TelegramLoginTokens => Set<Security.TelegramLoginToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
