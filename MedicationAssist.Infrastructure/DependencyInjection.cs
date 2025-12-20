@@ -38,12 +38,16 @@ public static class DependencyInjection
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
+        // Регистрация MemoryCache
+        services.AddMemoryCache();
+
         // Регистрация сервисов безопасности
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<ILinkTokenService, LinkTokenService>();
         services.AddScoped<IWebLoginTokenService, WebLoginTokenService>();
+        services.AddScoped<ITelegramLoginService, TelegramLoginService>();
 
         // Конфигурация JWT
         services.Configure<JwtSettings>(options =>

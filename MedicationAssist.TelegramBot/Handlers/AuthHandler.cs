@@ -4,6 +4,7 @@ using MedicationAssist.TelegramBot.Configuration;
 using MedicationAssist.TelegramBot.Keyboards;
 using MedicationAssist.TelegramBot.Resources;
 using MedicationAssist.TelegramBot.Services;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -22,6 +23,13 @@ public class AuthHandler
     private readonly TelegramBotSettings _settings;
     private readonly ILogger<AuthHandler> _logger;
     private readonly ILinkTokenService _linkTokenService;
+    private readonly IWebLoginTokenService _webLoginTokenService;
+    private readonly ITelegramLoginService _telegramLoginService;
+    private readonly IMemoryCache _memoryCache;
+
+    private const string RATE_LIMIT_PREFIX = "weblogin_reg_limit_";
+    private const int MAX_REGISTRATION_ATTEMPTS = 3;
+    private static readonly TimeSpan RATE_LIMIT_WINDOW = TimeSpan.FromHours(1);
 
     public AuthHandler(
         ITelegramBotClient botClient,
@@ -29,6 +37,9 @@ public class AuthHandler
         IAuthService authService,
         IUserService userService,
         ILinkTokenService linkTokenService,
+        IWebLoginTokenService webLoginTokenService,
+        ITelegramLoginService telegramLoginService,
+        IMemoryCache memoryCache,
         IOptions<TelegramBotSettings> settings,
         ILogger<AuthHandler> logger)
     {
@@ -37,6 +48,9 @@ public class AuthHandler
         _authService = authService;
         _userService = userService;
         _linkTokenService = linkTokenService;
+        _webLoginTokenService = webLoginTokenService;
+        _telegramLoginService = telegramLoginService;
+        _memoryCache = memoryCache;
         _settings = settings.Value;
         _logger = logger;
     }
@@ -608,6 +622,184 @@ public class AuthHandler
                 replyMarkup: InlineKeyboards.AuthMenu,
                 cancellationToken: ct);
         }
+    }
+
+    /// <summary>
+    /// Обработать авторизацию веб-логина через Telegram бот
+    /// </summary>
+    public async Task HandleWebLoginAuthorizationAsync(long chatId, User telegramUser, string token, CancellationToken ct)
+    {
+        try
+        {
+            _logger.LogInformation("Processing web login authorization for Telegram user {TelegramUserId} with token {Token}",
+                telegramUser.Id, token);
+
+            // Проверяем, есть ли у пользователя привязанный аккаунт
+            var userResult = await _userService.GetByTelegramIdAsync(telegramUser.Id, ct);
+
+            UserDto user;
+            bool isNewUser = false;
+
+            if (!userResult.IsSuccess || userResult.Data == null)
+            {
+                // Пользователь не привязан - создаем новый аккаунт автоматически
+
+                // 1. Проверка: это не бот?
+                if (telegramUser.IsBot)
+                {
+                    _logger.LogWarning("SECURITY: Bot account {TelegramUserId} attempted web login registration", telegramUser.Id);
+                    await _botClient.SendMessage(
+                        chatId,
+                        "❌ <b>Регистрация ботов запрещена</b>",
+                        parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
+                        replyMarkup: InlineKeyboards.AuthMenu,
+                        cancellationToken: ct);
+                    return;
+                }
+
+                // 2. Проверка rate limit
+                if (!await CheckRegistrationRateLimitAsync(telegramUser.Id))
+                {
+                    _logger.LogWarning("SECURITY: Rate limit exceeded for Telegram user {TelegramUserId} during web login registration", telegramUser.Id);
+                    await _botClient.SendMessage(
+                        chatId,
+                        "❌ <b>Превышен лимит попыток регистрации</b>\n\n" +
+                        "Пожалуйста, попробуйте позже (макс. 3 попытки в час).",
+                        parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
+                        replyMarkup: InlineKeyboards.AuthMenu,
+                        cancellationToken: ct);
+                    return;
+                }
+
+                // 3. Создаем нового пользователя
+                var email = $"telegram_{telegramUser.Id}@medicationassist.local";
+                var password = Guid.NewGuid().ToString();
+                var name = telegramUser.FirstName + (string.IsNullOrEmpty(telegramUser.LastName) ? "" : " " + telegramUser.LastName);
+
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    name = telegramUser.Username ?? $"User{telegramUser.Id}";
+                }
+
+                var registerDto = new RegisterDto { Name = name, Email = email, Password = password };
+                var registerResult = await _authService.RegisterAsync(registerDto);
+
+                if (!registerResult.IsSuccess || registerResult.Data == null)
+                {
+                    _logger.LogError("Failed to auto-register user for Telegram {TelegramUserId}: {Error}",
+                        telegramUser.Id, registerResult.Error);
+                    await _botClient.SendMessage(
+                        chatId,
+                        "❌ Произошла ошибка при создании аккаунта. Попробуйте еще раз.",
+                        replyMarkup: InlineKeyboards.AuthMenu,
+                        cancellationToken: ct);
+                    return;
+                }
+
+                // 4. Привязываем Telegram аккаунт
+                var linkResult = await _userService.LinkTelegramAsync(
+                    registerResult.Data.User.Id,
+                    new LinkTelegramDto(telegramUser.Id, telegramUser.Username),
+                    ct);
+
+                if (!linkResult.IsSuccess)
+                {
+                    _logger.LogWarning(
+                        "Failed to link Telegram account for auto-registered user {UserId}: {Error}",
+                        registerResult.Data.User.Id, linkResult.Error);
+                }
+
+                user = registerResult.Data.User;
+                isNewUser = true;
+
+                // 5. Логирование для безопасности
+                _logger.LogWarning(
+                    "AUTO_REGISTRATION via web login: TelegramId={TelegramUserId}, Username={Username}, FirstName={FirstName}, LastName={LastName}, ChatId={ChatId}, Email={Email}, UserId={UserId}",
+                    telegramUser.Id, telegramUser.Username ?? "null", telegramUser.FirstName ?? "null",
+                    telegramUser.LastName ?? "null", chatId, email, user.Id);
+            }
+            else
+            {
+                user = userResult.Data;
+            }
+
+            // Отмечаем токен как авторизованный
+            await _telegramLoginService.SetAuthorizedAsync(token, user.Id);
+
+            // Генерируем веб-логин токен для перехода на сайт
+            var webLoginToken = await _webLoginTokenService.GenerateTokenAsync(user.Id, ct);
+            var loginUrl = $"{_settings.WebsiteUrl}/auth/telegram?token={webLoginToken}";
+
+            // Отправляем сообщение с кнопкой для входа на сайт
+            var keyboard = new Telegram.Bot.Types.ReplyMarkups.InlineKeyboardMarkup(new[]
+            {
+                new[]
+                {
+                    Telegram.Bot.Types.ReplyMarkups.InlineKeyboardButton.WithUrl("🌐 Войти на сайт", loginUrl)
+                }
+            });
+
+            var messageText = isNewUser
+                ? $"✅ <b>Аккаунт создан!</b>\n\n" +
+                  $"👤 <b>{user.Name}</b>\n" +
+                  $"📧 <code>{user.Email}</code>\n\n" +
+                  $"Нажмите кнопку ниже для входа на сайт:\n" +
+                  $"⏱ Ссылка действительна 5 минут"
+                : $"✅ <b>Авторизация подтверждена!</b>\n\n" +
+                  $"👤 <b>{user.Name}</b>\n" +
+                  $"📧 <code>{user.Email}</code>\n\n" +
+                  $"Нажмите кнопку ниже для входа на сайт:\n" +
+                  $"⏱ Ссылка действительна 5 минут";
+
+            await _botClient.SendMessage(
+                chatId,
+                messageText,
+                parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
+                replyMarkup: keyboard,
+                cancellationToken: ct);
+
+            _logger.LogInformation("Web login authorized for user {UserId} via Telegram {TelegramUserId} (NewUser: {IsNewUser})",
+                user.Id, telegramUser.Id, isNewUser);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling web login authorization for Telegram user {TelegramUserId}",
+                telegramUser.Id);
+
+            await _botClient.SendMessage(
+                chatId,
+                "❌ Произошла ошибка при авторизации. Попробуйте еще раз.",
+                replyMarkup: InlineKeyboards.AuthMenu,
+                cancellationToken: ct);
+        }
+    }
+
+    /// <summary>
+    /// Проверить rate limit для регистрации через веб-логин
+    /// </summary>
+    /// <param name="telegramUserId">Telegram ID пользователя</param>
+    /// <returns>true если лимит не превышен, false если превышен</returns>
+    private async Task<bool> CheckRegistrationRateLimitAsync(long telegramUserId)
+    {
+        var cacheKey = $"{RATE_LIMIT_PREFIX}{telegramUserId}";
+
+        if (_memoryCache.TryGetValue<int>(cacheKey, out var attempts))
+        {
+            if (attempts >= MAX_REGISTRATION_ATTEMPTS)
+            {
+                return false; // Лимит превышен
+            }
+
+            // Увеличиваем счетчик попыток
+            _memoryCache.Set(cacheKey, attempts + 1, RATE_LIMIT_WINDOW);
+        }
+        else
+        {
+            // Первая попытка
+            _memoryCache.Set(cacheKey, 1, RATE_LIMIT_WINDOW);
+        }
+
+        return await Task.FromResult(true);
     }
 }
 

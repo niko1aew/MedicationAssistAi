@@ -16,24 +16,30 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly IWebLoginTokenService _webLoginTokenService;
+    private readonly ITelegramLoginService _telegramLoginService;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly IUserRepository _userRepository;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         IAuthService authService,
         IWebLoginTokenService webLoginTokenService,
+        ITelegramLoginService telegramLoginService,
         IJwtTokenService jwtTokenService,
         IRefreshTokenService refreshTokenService,
         IUserRepository userRepository,
+        IConfiguration configuration,
         ILogger<AuthController> logger)
     {
         _authService = authService;
         _webLoginTokenService = webLoginTokenService;
+        _telegramLoginService = telegramLoginService;
         _jwtTokenService = jwtTokenService;
         _refreshTokenService = refreshTokenService;
         _userRepository = userRepository;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -220,6 +226,111 @@ public class AuthController : ControllerBase
         };
 
         _logger.LogInformation("Успешный веб-логин через Telegram для пользователя {UserId}", userId);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Инициировать вход через Telegram бот (генерирует токен и deep link)
+    /// </summary>
+    /// <returns>Токен, deep link и URL для polling</returns>
+    [HttpPost("telegram-login-init")]
+    [ProducesResponseType(typeof(TelegramLoginInitResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> InitiateTelegramLogin()
+    {
+        _logger.LogInformation("Инициализация входа через Telegram");
+
+        // Генерируем анонимный токен для авторизации
+        var token = await _telegramLoginService.GenerateAnonymousTokenAsync();
+
+        // Получаем имя бота из конфигурации
+        var botUsername = _configuration["TelegramBot:BotUsername"];
+        if (string.IsNullOrEmpty(botUsername))
+        {
+            _logger.LogError("TelegramBot:BotUsername не настроен в конфигурации");
+            return BadRequest(new { error = "Telegram бот не настроен" });
+        }
+
+        // Формируем deep link для перехода в бот
+        var deepLink = $"https://t.me/{botUsername}?start=weblogin_{token}";
+
+        var response = new TelegramLoginInitResponseDto
+        {
+            Token = token,
+            DeepLink = deepLink,
+            ExpiresInMinutes = 5,
+            PollUrl = $"/api/auth/telegram-login-poll/{token}"
+        };
+
+        _logger.LogInformation("Сгенерирован токен для входа через Telegram: {Token}", token);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Polling endpoint для проверки статуса авторизации через Telegram
+    /// </summary>
+    /// <param name="token">Токен авторизации</param>
+    /// <returns>Статус авторизации и токены при успехе</returns>
+    [HttpGet("telegram-login-poll/{token}")]
+    [ProducesResponseType(typeof(TelegramLoginPollResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> PollTelegramLogin(string token)
+    {
+        _logger.LogDebug("Polling статуса авторизации для токена: {Token}", token);
+
+        // Проверяем статус авторизации
+        var authStatus = await _telegramLoginService.CheckAuthorizationStatusAsync(token);
+
+        if (authStatus == null)
+        {
+            // Токен не найден или истек
+            _logger.LogDebug("Токен не найден или истек: {Token}", token);
+            return Ok(new TelegramLoginPollResponseDto { Status = "expired" });
+        }
+
+        if (!authStatus.IsAuthorized)
+        {
+            // Авторизация еще не завершена
+            _logger.LogDebug("Ожидание авторизации для токена: {Token}", token);
+            return Ok(new TelegramLoginPollResponseDto { Status = "pending" });
+        }
+
+        // Пользователь авторизован - генерируем JWT токены
+        _logger.LogInformation("Пользователь {UserId} авторизован через Telegram", authStatus.UserId);
+
+        var user = await _userRepository.GetByIdAsync(authStatus.UserId!.Value);
+        if (user == null)
+        {
+            _logger.LogError("Пользователь {UserId} не найден после авторизации", authStatus.UserId);
+            return Ok(new TelegramLoginPollResponseDto { Status = "expired" });
+        }
+
+        // Генерируем JWT токены
+        var tokens = _jwtTokenService.GenerateTokens(user);
+
+        // Сохраняем refresh токен
+        await _refreshTokenService.CreateTokenAsync(
+            user.Id,
+            tokens.RefreshToken,
+            tokens.RefreshTokenExpires);
+
+        var response = new TelegramLoginPollResponseDto
+        {
+            Status = "authorized",
+            Token = tokens.AccessToken,
+            RefreshToken = tokens.RefreshToken,
+            TokenExpires = tokens.AccessTokenExpires,
+            User = new UserDto(
+                user.Id,
+                user.Name,
+                user.Email,
+                user.Role,
+                user.TelegramUserId,
+                user.TelegramUsername,
+                user.TimeZoneId,
+                user.CreatedAt,
+                user.UpdatedAt)
+        };
+
+        _logger.LogInformation("Успешный вход через Telegram для пользователя {UserId}", user.Id);
         return Ok(response);
     }
 }

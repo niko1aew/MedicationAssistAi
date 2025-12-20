@@ -230,6 +230,15 @@ public class CommandHandler
             return;
         }
 
+        // Обработка deep link для веб-логина
+        if (!string.IsNullOrEmpty(parameter) && parameter.StartsWith("weblogin_"))
+        {
+            var token = parameter.Substring(9); // Убираем префикс "weblogin_"
+            _logger.LogInformation("Detected web login token, redirecting to HandleWebLoginAuthorizationAsync with token: {Token}", token);
+            await _authHandler.HandleWebLoginAuthorizationAsync(chatId, telegramUser, token, ct);
+            return;
+        }
+
         var session = _sessionService.GetOrCreateSession(userId);
 
         if (session.IsAuthenticated)
