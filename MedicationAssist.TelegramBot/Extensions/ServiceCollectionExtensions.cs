@@ -21,6 +21,9 @@ public static class ServiceCollectionExtensions
         services.Configure<TelegramBotSettings>(
             configuration.GetSection(TelegramBotSettings.SectionName));
 
+        // Регистрация Memory Cache для rate limiting
+        services.AddMemoryCache();
+
         // Регистрация TelegramBotClient
         services.AddSingleton<ITelegramBotClient>(sp =>
         {
