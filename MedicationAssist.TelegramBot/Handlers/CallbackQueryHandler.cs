@@ -22,6 +22,7 @@ public class CallbackQueryHandler
     private readonly ReminderHandler _reminderHandler;
     private readonly SettingsHandler _settingsHandler;
     private readonly IWebLoginTokenService _webLoginTokenService;
+    private readonly IUserService _userService;
     private readonly TelegramBotSettings _settings;
     private readonly ILogger<CallbackQueryHandler> _logger;
 
@@ -34,6 +35,7 @@ public class CallbackQueryHandler
         ReminderHandler reminderHandler,
         SettingsHandler settingsHandler,
         IWebLoginTokenService webLoginTokenService,
+        IUserService userService,
         IOptions<TelegramBotSettings> settings,
         ILogger<CallbackQueryHandler> logger)
     {
@@ -45,6 +47,7 @@ public class CallbackQueryHandler
         _reminderHandler = reminderHandler;
         _settingsHandler = settingsHandler;
         _webLoginTokenService = webLoginTokenService;
+        _userService = userService;
         _settings = settings.Value;
         _logger = logger;
     }
@@ -435,11 +438,50 @@ public class CallbackQueryHandler
 
         if (!session.IsAuthenticated)
         {
+            // Пытаемся автоматически авторизовать по Telegram ID
+            var autoAuthResult = await TryAutoAuthenticateAsync(userId, ct);
+
+            if (autoAuthResult)
+            {
+                _logger.LogInformation("User {TelegramUserId} was auto-authenticated", userId);
+                return true;
+            }
+
             await _authHandler.ShowAuthMenuAsync(chatId, messageId, ct);
             return false;
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Попытаться автоматически авторизовать пользователя по Telegram ID
+    /// </summary>
+    private async Task<bool> TryAutoAuthenticateAsync(long telegramUserId, CancellationToken ct)
+    {
+        try
+        {
+            // Проверяем, есть ли пользователь с таким Telegram ID в базе
+            var userResult = await _userService.GetByTelegramIdAsync(telegramUserId, ct);
+
+            if (userResult.IsSuccess && userResult.Data != null)
+            {
+                // Пользователь найден - авторизуем его в сессии
+                _sessionService.Authenticate(telegramUserId, userResult.Data.Id, userResult.Data.Name);
+
+                _logger.LogInformation(
+                    "Auto-authenticated Telegram user {TelegramUserId} as {UserName} (ID: {UserId})",
+                    telegramUserId, userResult.Data.Name, userResult.Data.Id);
+
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during auto-authentication for Telegram user {TelegramUserId}", telegramUserId);
+        }
+
+        return false;
     }
 
     /// <summary>

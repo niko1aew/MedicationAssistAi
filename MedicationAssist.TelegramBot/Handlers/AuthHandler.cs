@@ -133,9 +133,40 @@ public class AuthHandler
     /// </summary>
     public async Task QuickStartAsync(long chatId, User telegramUser, int? messageId, CancellationToken ct)
     {
-        var email = $"{telegramUser.Id}@telegram.local";
+        // СНАЧАЛА проверяем, привязан ли этот Telegram ID к существующему пользователю
+        var existingUserByTelegramId = await _userService.GetByTelegramIdAsync(telegramUser.Id, ct);
 
-        // Проверяем, существует ли уже пользователь с таким email
+        if (existingUserByTelegramId.IsSuccess && existingUserByTelegramId.Data != null)
+        {
+            // Пользователь с таким Telegram ID уже существует - просто авторизуем
+            _sessionService.Authenticate(telegramUser.Id, existingUserByTelegramId.Data.Id, existingUserByTelegramId.Data.Name);
+
+            if (messageId.HasValue)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId.Value,
+                    string.Format(Messages.WelcomeBack, existingUserByTelegramId.Data.Name),
+                    replyMarkup: InlineKeyboards.MainMenu,
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId,
+                    string.Format(Messages.WelcomeBack, existingUserByTelegramId.Data.Name),
+                    replyMarkup: InlineKeyboards.MainMenu,
+                    cancellationToken: ct);
+            }
+
+            _logger.LogInformation(
+                "Telegram user {TelegramUserId} authenticated via quick start as {UserName} (ID: {UserId})",
+                telegramUser.Id, existingUserByTelegramId.Data.Name, existingUserByTelegramId.Data.Id);
+            return;
+        }
+
+        // Если нет привязки по Telegram ID, проверяем существование пользователя по email (для обратной совместимости)
+        var email = $"{telegramUser.Id}@telegram.local";
         var existingUser = await _userService.GetByEmailAsync(email, ct);
 
         if (existingUser.IsSuccess && existingUser.Data != null)
