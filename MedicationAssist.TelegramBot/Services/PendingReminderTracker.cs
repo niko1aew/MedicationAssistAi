@@ -16,6 +16,7 @@ public class PendingReminderInfo
     public DateTime FirstSentAt { get; set; }
     public DateTime LastSentAt { get; set; }
     public int MessageId { get; set; } // Последнее отправленное сообщение
+    public bool IsProcessing { get; set; } // Флаг обработки для предотвращения дублирования
 }
 
 /// <summary>
@@ -48,6 +49,33 @@ public class PendingReminderTracker
     public bool Remove(Guid reminderId)
     {
         return _pendingReminders.TryRemove(reminderId, out _);
+    }
+
+    /// <summary>
+    /// Установить флаг обработки для напоминания
+    /// </summary>
+    public bool TrySetProcessing(Guid reminderId)
+    {
+        if (_pendingReminders.TryGetValue(reminderId, out var info))
+        {
+            if (info.IsProcessing)
+                return false; // Уже обрабатывается
+
+            info.IsProcessing = true;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Снять флаг обработки для напоминания
+    /// </summary>
+    public void ClearProcessing(Guid reminderId)
+    {
+        if (_pendingReminders.TryGetValue(reminderId, out var info))
+        {
+            info.IsProcessing = false;
+        }
     }
 
     /// <summary>

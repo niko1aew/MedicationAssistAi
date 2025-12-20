@@ -328,36 +328,91 @@ public class CallbackQueryHandler
             return;
         }
 
-        var medicationName = await _reminderHandler.GetMedicationNameAsync(reminderId, ct);
-        var success = await _reminderHandler.HandleReminderTakenAsync(reminderId, userId, ct);
-
-        if (success)
+        // Проверяем, не обрабатывается ли уже это напоминание
+        if (!_reminderHandler.TryStartProcessingReminder(reminderId))
         {
+            _logger.LogDebug("Reminder {ReminderId} is already being processed, ignoring duplicate request", reminderId);
+            return; // Напоминание уже обрабатывается, игнорируем дубликат
+        }
+
+        var medicationName = await _reminderHandler.GetMedicationNameAsync(reminderId, ct);
+
+        try
+        {
+            // Сразу обновляем интерфейс, показывая пользователю статус обработки
             await _botClient.EditMessageText(
                 chatId,
                 messageId,
-                string.Format(Messages.ReminderTaken, medicationName ?? "лекарство"),
+                string.Format("⏳ Записываю приём {0}...", medicationName ?? "лекарства"),
                 cancellationToken: ct);
+
+            var success = await _reminderHandler.HandleReminderTakenAsync(reminderId, userId, ct);
+
+            if (success)
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId,
+                    string.Format(Messages.ReminderTaken, medicationName ?? "лекарство"),
+                    cancellationToken: ct);
+            }
+            else
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId,
+                    Messages.UnknownError,
+                    cancellationToken: ct);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            await _botClient.SendMessage(
-                chatId,
-                Messages.UnknownError,
-                cancellationToken: ct);
+            _logger.LogError(ex, "Error handling take reminder {ReminderId}", reminderId);
+
+            try
+            {
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId,
+                    Messages.UnknownError,
+                    cancellationToken: ct);
+            }
+            catch (Exception editEx)
+            {
+                _logger.LogError(editEx, "Error updating message after failed reminder handling");
+            }
+
+            // Снимаем флаг обработки в случае ошибки
+            _reminderHandler.ClearProcessingReminder(reminderId);
         }
     }
 
     private async Task HandleSkipReminderAsync(long chatId, Guid reminderId, int messageId, CancellationToken ct)
     {
-        var medicationName = await _reminderHandler.GetMedicationNameAsync(reminderId, ct);
-        await _reminderHandler.HandleReminderSkippedAsync(reminderId, ct);
+        // Проверяем, не обрабатывается ли уже это напоминание
+        if (!_reminderHandler.TryStartProcessingReminder(reminderId))
+        {
+            _logger.LogDebug("Reminder {ReminderId} is already being processed, ignoring duplicate skip request", reminderId);
+            return; // Напоминание уже обрабатывается, игнорируем дубликат
+        }
 
-        await _botClient.EditMessageText(
-            chatId,
-            messageId,
-            string.Format(Messages.ReminderSkipped, medicationName ?? "лекарство"),
-            cancellationToken: ct);
+        try
+        {
+            var medicationName = await _reminderHandler.GetMedicationNameAsync(reminderId, ct);
+            await _reminderHandler.HandleReminderSkippedAsync(reminderId, ct);
+
+            await _botClient.EditMessageText(
+                chatId,
+                messageId,
+                string.Format(Messages.ReminderSkipped, medicationName ?? "лекарство"),
+                cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling skip reminder {ReminderId}", reminderId);
+            _reminderHandler.ClearProcessingReminder(reminderId);
+            throw;
+        }
     }
 
     private async Task<bool> EnsureAuthenticatedAsync(long chatId, long userId, int messageId, CancellationToken ct)

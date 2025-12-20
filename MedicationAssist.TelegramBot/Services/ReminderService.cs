@@ -445,6 +445,22 @@ public class ReminderService : BackgroundService
     }
 
     /// <summary>
+    /// Попытаться установить флаг обработки для напоминания
+    /// </summary>
+    public bool TryStartProcessingReminder(Guid reminderId)
+    {
+        return _pendingTracker.TrySetProcessing(reminderId);
+    }
+
+    /// <summary>
+    /// Снять флаг обработки для напоминания
+    /// </summary>
+    public void ClearProcessingReminder(Guid reminderId)
+    {
+        _pendingTracker.ClearProcessing(reminderId);
+    }
+
+    /// <summary>
     /// Парсинг времени из строки
     /// </summary>
     public static bool TryParseTime(string input, out TimeOnly time)

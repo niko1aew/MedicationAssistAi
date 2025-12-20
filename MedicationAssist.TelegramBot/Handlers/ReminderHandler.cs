@@ -410,5 +410,21 @@ public class ReminderHandler
     {
         return Task.FromResult(_reminderService.GetMedicationNameFromPending(reminderId));
     }
+
+    /// <summary>
+    /// Попытаться установить флаг обработки для напоминания (для предотвращения дублирования)
+    /// </summary>
+    public bool TryStartProcessingReminder(Guid reminderId)
+    {
+        return _reminderService.TryStartProcessingReminder(reminderId);
+    }
+
+    /// <summary>
+    /// Снять флаг обработки для напоминания (в случае ошибки)
+    /// </summary>
+    public void ClearProcessingReminder(Guid reminderId)
+    {
+        _reminderService.ClearProcessingReminder(reminderId);
+    }
 }
 
