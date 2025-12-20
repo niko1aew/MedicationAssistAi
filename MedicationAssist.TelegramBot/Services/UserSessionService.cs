@@ -8,7 +8,7 @@ namespace MedicationAssist.TelegramBot.Services;
 public enum ConversationState
 {
     None,
-    
+
     // Аутентификация
     AwaitingEmail,
     AwaitingPassword,
@@ -16,15 +16,15 @@ public enum ConversationState
     AwaitingRegisterEmail,
     AwaitingRegisterPassword,
     AwaitingRegisterName,
-    
+
     // Лекарства
     AwaitingMedicationName,
     AwaitingMedicationDosage,
     AwaitingMedicationDescription,
-    
+
     // Приёмы
     AwaitingIntakeNotes,
-    
+
     // Напоминания
     AwaitingReminderTime,
 }
@@ -38,37 +38,42 @@ public class UserSession
     /// Telegram User ID
     /// </summary>
     public long TelegramUserId { get; set; }
-    
+
     /// <summary>
     /// ID пользователя в системе (после авторизации)
     /// </summary>
     public Guid? UserId { get; set; }
-    
+
     /// <summary>
     /// Имя пользователя
     /// </summary>
     public string? UserName { get; set; }
-    
+
     /// <summary>
     /// Текущее состояние диалога
     /// </summary>
     public ConversationState State { get; set; } = ConversationState.None;
-    
+
     /// <summary>
     /// Временные данные для многошаговых операций
     /// </summary>
     public Dictionary<string, object> TempData { get; set; } = new();
-    
+
     /// <summary>
     /// Время последней активности
     /// </summary>
     public DateTime LastActivity { get; set; } = DateTime.UtcNow;
-    
+
     /// <summary>
     /// Авторизован ли пользователь
     /// </summary>
     public bool IsAuthenticated => UserId.HasValue;
-    
+
+    /// <summary>
+    /// Флаг обработки операции (для предотвращения повторных нажатий)
+    /// </summary>
+    public bool IsProcessing { get; set; }
+
     /// <summary>
     /// Сбросить состояние диалога
     /// </summary>
@@ -77,7 +82,7 @@ public class UserSession
         State = ConversationState.None;
         TempData.Clear();
     }
-    
+
     /// <summary>
     /// Выход из аккаунта
     /// </summary>
@@ -131,7 +136,7 @@ public class UserSessionService
         session.UserName = userName;
         session.ResetState();
         session.LastActivity = DateTime.UtcNow;
-        
+
         _logger.LogInformation(
             "Пользователь {TelegramUserId} авторизован как {UserName} (ID: {UserId})",
             telegramUserId, userName, userId);

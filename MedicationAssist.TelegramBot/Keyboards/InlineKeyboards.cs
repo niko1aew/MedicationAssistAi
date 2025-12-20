@@ -26,9 +26,7 @@ public static class InlineKeyboards
     /// </summary>
     public static InlineKeyboardMarkup AuthMenu => new(new[]
     {
-        new[] { InlineKeyboardButton.WithCallbackData("🔑 Войти в аккаунт", "login") },
-        new[] { InlineKeyboardButton.WithCallbackData("📝 Зарегистрироваться", "register") },
-        new[] { InlineKeyboardButton.WithCallbackData("⚡ Быстрый старт", "quick_start") },
+        new[] { InlineKeyboardButton.WithCallbackData("▶️ Старт", "quick_start") },
     });
 
     /// <summary>

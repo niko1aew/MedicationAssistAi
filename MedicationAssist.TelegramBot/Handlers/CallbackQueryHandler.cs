@@ -88,14 +88,6 @@ public class CallbackQueryHandler
                     break;
 
                 // Аутентификация
-                case "login":
-                    await _authHandler.StartLoginAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
-                    break;
-
-                case "register":
-                    await _authHandler.StartRegisterAsync(chatId, userId, callbackQuery.Message.MessageId, ct);
-                    break;
-
                 case "quick_start":
                     await _authHandler.QuickStartAsync(chatId, callbackQuery.From, callbackQuery.Message.MessageId, ct);
                     break;
@@ -507,15 +499,13 @@ public class CallbackQueryHandler
                 new[]
                 {
                     new[] { Telegram.Bot.Types.ReplyMarkups.InlineKeyboardButton.WithUrl("🌐 Открыть сайт", url) },
-                    new[] { Telegram.Bot.Types.ReplyMarkups.InlineKeyboardButton.WithCallbackData("◀️ Назад", "main_menu") }
+                    new[] { Telegram.Bot.Types.ReplyMarkups.InlineKeyboardButton.WithCallbackData("◀️ Главное меню", "main_menu") }
                 });
 
             await _botClient.EditMessageText(
                 chatId,
                 messageId,
-                "🌐 <b>Открыть сайт в браузере</b>\n\n" +
-                "Нажмите кнопку ниже, чтобы автоматически войти на сайт.\n\n" +
-                "⏱ <i>Ссылка действительна 5 минут</i>",
+                "🌐 Нажмите кнопку для входа на сайт\n\n⏱ Ссылка действительна <b>5 минут</b>",
                 parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
                 replyMarkup: keyboard,
                 cancellationToken: ct);

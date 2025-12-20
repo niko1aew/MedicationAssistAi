@@ -133,49 +133,117 @@ public class AuthHandler
     /// </summary>
     public async Task QuickStartAsync(long chatId, User telegramUser, int? messageId, CancellationToken ct)
     {
-        // СНАЧАЛА проверяем, привязан ли этот Telegram ID к существующему пользователю
-        var existingUserByTelegramId = await _userService.GetByTelegramIdAsync(telegramUser.Id, ct);
+        // Проверяем, не идет ли уже обработка запроса от этого пользователя
+        var session = _sessionService.GetOrCreateSession(telegramUser.Id);
 
-        if (existingUserByTelegramId.IsSuccess && existingUserByTelegramId.Data != null)
+        if (session.IsProcessing)
         {
-            // Пользователь с таким Telegram ID уже существует - просто авторизуем
-            _sessionService.Authenticate(telegramUser.Id, existingUserByTelegramId.Data.Id, existingUserByTelegramId.Data.Name);
-
-            if (messageId.HasValue)
-            {
-                await _botClient.EditMessageText(
-                    chatId,
-                    messageId.Value,
-                    string.Format(Messages.WelcomeBack, existingUserByTelegramId.Data.Name),
-                    replyMarkup: InlineKeyboards.MainMenu,
-                    cancellationToken: ct);
-            }
-            else
-            {
-                await _botClient.SendMessage(
-                    chatId,
-                    string.Format(Messages.WelcomeBack, existingUserByTelegramId.Data.Name),
-                    replyMarkup: InlineKeyboards.MainMenu,
-                    cancellationToken: ct);
-            }
-
-            _logger.LogInformation(
-                "Telegram user {TelegramUserId} authenticated via quick start as {UserName} (ID: {UserId})",
-                telegramUser.Id, existingUserByTelegramId.Data.Name, existingUserByTelegramId.Data.Id);
+            _logger.LogDebug("Quick start already processing for user {TelegramUserId}, ignoring duplicate request", telegramUser.Id);
             return;
         }
 
-        // Если нет привязки по Telegram ID, проверяем существование пользователя по email (для обратной совместимости)
-        var email = $"{telegramUser.Id}@telegram.local";
-        var existingUser = await _userService.GetByEmailAsync(email, ct);
+        // Устанавливаем флаг обработки
+        session.IsProcessing = true;
 
-        if (existingUser.IsSuccess && existingUser.Data != null)
+        try
         {
-            // Пользователь уже существует - привязываем Telegram если еще не привязан
-            if (existingUser.Data.TelegramUserId == null || existingUser.Data.TelegramUserId != telegramUser.Id)
+            // СНАЧАЛА проверяем, привязан ли этот Telegram ID к существующему пользователю
+            var existingUserByTelegramId = await _userService.GetByTelegramIdAsync(telegramUser.Id, ct);
+
+            if (existingUserByTelegramId.IsSuccess && existingUserByTelegramId.Data != null)
             {
+                // Пользователь с таким Telegram ID уже существует - просто авторизуем
+                _sessionService.Authenticate(telegramUser.Id, existingUserByTelegramId.Data.Id, existingUserByTelegramId.Data.Name);
+
+                if (messageId.HasValue)
+                {
+                    await _botClient.EditMessageText(
+                        chatId,
+                        messageId.Value,
+                        string.Format(Messages.WelcomeBack, existingUserByTelegramId.Data.Name),
+                        replyMarkup: InlineKeyboards.MainMenu,
+                        cancellationToken: ct);
+                }
+                else
+                {
+                    await _botClient.SendMessage(
+                        chatId,
+                        string.Format(Messages.WelcomeBack, existingUserByTelegramId.Data.Name),
+                        replyMarkup: InlineKeyboards.MainMenu,
+                        cancellationToken: ct);
+                }
+
+                _logger.LogInformation(
+                    "Telegram user {TelegramUserId} authenticated via quick start as {UserName} (ID: {UserId})",
+                    telegramUser.Id, existingUserByTelegramId.Data.Name, existingUserByTelegramId.Data.Id);
+                return;
+            }
+
+            // Если нет привязки по Telegram ID, проверяем существование пользователя по email (для обратной совместимости)
+            var email = $"{telegramUser.Id}@telegram.local";
+            var existingUser = await _userService.GetByEmailAsync(email, ct);
+
+            if (existingUser.IsSuccess && existingUser.Data != null)
+            {
+                // Пользователь уже существует - привязываем Telegram если еще не привязан
+                if (existingUser.Data.TelegramUserId == null || existingUser.Data.TelegramUserId != telegramUser.Id)
+                {
+                    var linkResult = await _userService.LinkTelegramAsync(
+                        existingUser.Data.Id,
+                        new LinkTelegramDto(telegramUser.Id, telegramUser.Username),
+                        ct);
+
+                    if (!linkResult.IsSuccess)
+                    {
+                        _logger.LogWarning(
+                            "Failed to link Telegram account for user {UserId}: {Error}",
+                            existingUser.Data.Id, linkResult.Error);
+                    }
+                }
+
+                _sessionService.Authenticate(telegramUser.Id, existingUser.Data.Id, existingUser.Data.Name);
+
+                if (messageId.HasValue)
+                {
+                    await _botClient.EditMessageText(
+                        chatId,
+                        messageId.Value,
+                        string.Format(Messages.WelcomeBack, existingUser.Data.Name),
+                        replyMarkup: InlineKeyboards.MainMenu,
+                        cancellationToken: ct);
+                }
+                else
+                {
+                    await _botClient.SendMessage(
+                        chatId,
+                        string.Format(Messages.WelcomeBack, existingUser.Data.Name),
+                        replyMarkup: InlineKeyboards.MainMenu,
+                        cancellationToken: ct);
+                }
+
+                _logger.LogInformation(
+                    "Telegram user {TelegramUserId} authenticated via quick start as {Email}",
+                    telegramUser.Id, email);
+                return;
+            }
+
+            // Пользователь не существует - регистрируем нового
+            var password = Guid.NewGuid().ToString();
+            var name = telegramUser.FirstName + (string.IsNullOrEmpty(telegramUser.LastName) ? "" : " " + telegramUser.LastName);
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                name = telegramUser.Username ?? $"User{telegramUser.Id}";
+            }
+
+            var registerDto = new RegisterDto { Name = name, Email = email, Password = password };
+            var result = await _authService.RegisterAsync(registerDto);
+
+            if (result.IsSuccess)
+            {
+                // Привязываем Telegram аккаунт к новому пользователю
                 var linkResult = await _userService.LinkTelegramAsync(
-                    existingUser.Data.Id,
+                    result.Data!.User.Id,
                     new LinkTelegramDto(telegramUser.Id, telegramUser.Username),
                     ct);
 
@@ -183,114 +251,65 @@ public class AuthHandler
                 {
                     _logger.LogWarning(
                         "Failed to link Telegram account for user {UserId}: {Error}",
-                        existingUser.Data.Id, linkResult.Error);
+                        result.Data.User.Id, linkResult.Error);
+                }
+
+                _sessionService.Authenticate(telegramUser.Id, result.Data!.User.Id, result.Data.User.Name);
+
+                var credentialsMessage = $"{Messages.QuickStartSuccess}\n\n" +
+                                       $"🌐 <b>Ссылка на сайт:</b> {_settings.WebsiteUrl}\n" +
+                                       $"👤 <b>Логин (Email):</b> <code>{email}</code>\n" +
+                                       $"🔑 <b>Пароль:</b> <code>{password}</code>\n\n" +
+                                       $"💡 <i>Сохраните эти данные для входа на сайт!</i>";
+
+                if (messageId.HasValue)
+                {
+                    await _botClient.EditMessageText(
+                        chatId,
+                        messageId.Value,
+                        credentialsMessage,
+                        parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
+                        replyMarkup: InlineKeyboards.MainMenu,
+                        cancellationToken: ct);
+                }
+                else
+                {
+                    await _botClient.SendMessage(
+                        chatId,
+                        credentialsMessage,
+                        parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
+                        replyMarkup: InlineKeyboards.MainMenu,
+                        cancellationToken: ct);
+                }
+
+                _logger.LogInformation(
+                    "Quick registration of Telegram user {TelegramUserId} as {Email}",
+                    telegramUser.Id, email);
+            }
+            else
+            {
+                if (messageId.HasValue)
+                {
+                    await _botClient.EditMessageText(
+                        chatId,
+                        messageId.Value,
+                        string.Format(Messages.Error, result.Error),
+                        replyMarkup: InlineKeyboards.AuthMenu,
+                        cancellationToken: ct);
+                }
+                else
+                {
+                    await _botClient.SendMessage(
+                        chatId,
+                        string.Format(Messages.Error, result.Error),
+                        replyMarkup: InlineKeyboards.AuthMenu,
+                        cancellationToken: ct);
                 }
             }
-
-            _sessionService.Authenticate(telegramUser.Id, existingUser.Data.Id, existingUser.Data.Name);
-
-            if (messageId.HasValue)
-            {
-                await _botClient.EditMessageText(
-                    chatId,
-                    messageId.Value,
-                    string.Format(Messages.WelcomeBack, existingUser.Data.Name),
-                    replyMarkup: InlineKeyboards.MainMenu,
-                    cancellationToken: ct);
-            }
-            else
-            {
-                await _botClient.SendMessage(
-                    chatId,
-                    string.Format(Messages.WelcomeBack, existingUser.Data.Name),
-                    replyMarkup: InlineKeyboards.MainMenu,
-                    cancellationToken: ct);
-            }
-
-            _logger.LogInformation(
-                "Telegram user {TelegramUserId} authenticated via quick start as {Email}",
-                telegramUser.Id, email);
-            return;
         }
-
-        // Пользователь не существует - регистрируем нового
-        var password = Guid.NewGuid().ToString();
-        var name = telegramUser.FirstName + (string.IsNullOrEmpty(telegramUser.LastName) ? "" : " " + telegramUser.LastName);
-
-        if (string.IsNullOrWhiteSpace(name))
+        finally
         {
-            name = telegramUser.Username ?? $"User{telegramUser.Id}";
-        }
-
-        var registerDto = new RegisterDto { Name = name, Email = email, Password = password };
-        var result = await _authService.RegisterAsync(registerDto);
-
-        if (result.IsSuccess)
-        {
-            // Привязываем Telegram аккаунт к новому пользователю
-            var linkResult = await _userService.LinkTelegramAsync(
-                result.Data!.User.Id,
-                new LinkTelegramDto(telegramUser.Id, telegramUser.Username),
-                ct);
-
-            if (!linkResult.IsSuccess)
-            {
-                _logger.LogWarning(
-                    "Failed to link Telegram account for user {UserId}: {Error}",
-                    result.Data.User.Id, linkResult.Error);
-            }
-
-            _sessionService.Authenticate(telegramUser.Id, result.Data!.User.Id, result.Data.User.Name);
-
-            var credentialsMessage = $"{Messages.QuickStartSuccess}\n\n" +
-                                   $"🌐 <b>Ссылка на сайт:</b> {_settings.WebsiteUrl}\n" +
-                                   $"👤 <b>Логин (Email):</b> <code>{email}</code>\n" +
-                                   $"🔑 <b>Пароль:</b> <code>{password}</code>\n\n" +
-                                   $"💡 <i>Сохраните эти данные для входа на сайт!</i>";
-
-            if (messageId.HasValue)
-            {
-                await _botClient.EditMessageText(
-                    chatId,
-                    messageId.Value,
-                    credentialsMessage,
-                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
-                    replyMarkup: InlineKeyboards.MainMenu,
-                    cancellationToken: ct);
-            }
-            else
-            {
-                await _botClient.SendMessage(
-                    chatId,
-                    credentialsMessage,
-                    parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
-                    replyMarkup: InlineKeyboards.MainMenu,
-                    cancellationToken: ct);
-            }
-
-            _logger.LogInformation(
-                "Quick registration of Telegram user {TelegramUserId} as {Email}",
-                telegramUser.Id, email);
-        }
-        else
-        {
-            if (messageId.HasValue)
-            {
-                await _botClient.EditMessageText(
-                    chatId,
-                    messageId.Value,
-                    string.Format(Messages.Error, result.Error),
-                    replyMarkup: InlineKeyboards.AuthMenu,
-                    cancellationToken: ct);
-            }
-            else
-            {
-                await _botClient.SendMessage(
-                    chatId,
-                    string.Format(Messages.Error, result.Error),
-                    replyMarkup: InlineKeyboards.AuthMenu,
-                    cancellationToken: ct);
-            }
+            session.IsProcessing = false;
         }
     }
 
