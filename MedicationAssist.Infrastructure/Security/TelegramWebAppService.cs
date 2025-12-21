@@ -16,8 +16,9 @@ namespace MedicationAssist.Infrastructure.Security;
 /// </summary>
 public class TelegramWebAppService : ITelegramWebAppService
 {
-    private readonly string _botToken;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<TelegramWebAppService> _logger;
+    private string? _botToken;
 
     /// <summary>
     /// Максимальный срок действия данных (1 час)
@@ -28,10 +29,12 @@ public class TelegramWebAppService : ITelegramWebAppService
         IConfiguration configuration,
         ILogger<TelegramWebAppService> logger)
     {
-        _botToken = configuration["TelegramBot:Token"]
-            ?? throw new InvalidOperationException("TelegramBot:Token not configured");
+        _configuration = configuration;
         _logger = logger;
     }
+
+    private string BotToken => _botToken ??= _configuration["TelegramBot:Token"]
+        ?? throw new InvalidOperationException("TelegramBot:Token not configured. Set TELEGRAM_BOT_TOKEN environment variable.");
 
     /// <inheritdoc />
     public TelegramWebAppValidationResult ValidateInitData(string initData)
@@ -82,7 +85,7 @@ public class TelegramWebAppService : ITelegramWebAppService
             // secret_key = HMAC_SHA256(bot_token, "WebAppData")
             var secretKey = HMACSHA256.HashData(
                 Encoding.UTF8.GetBytes("WebAppData"),
-                Encoding.UTF8.GetBytes(_botToken));
+                Encoding.UTF8.GetBytes(BotToken));
 
             // hash = HMAC_SHA256(secret_key, data_check_string)
             var computedHashBytes = HMACSHA256.HashData(
