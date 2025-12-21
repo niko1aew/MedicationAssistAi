@@ -19,6 +19,17 @@ public class User : Entity
     public string? TelegramUsername { get; private set; }
     public string TimeZoneId { get; private set; }
 
+    // Channel subscription tracking
+    public bool IsBlocked { get; private set; }
+    public string? BlockedReason { get; private set; }
+    public DateTime? BlockedAt { get; private set; }
+    public DateTime? LastSubscriptionCheckAt { get; private set; }
+    public DateTime? ChannelMembershipVerifiedAt { get; private set; }
+
+    // Onboarding tracking
+    public bool IsOnboardingCompleted { get; private set; }
+    public OnboardingStep? OnboardingStep { get; private set; }
+
     public IReadOnlyCollection<Medication> Medications => _medications.AsReadOnly();
     public IReadOnlyCollection<MedicationIntake> MedicationIntakes => _medicationIntakes.AsReadOnly();
     public IReadOnlyCollection<Reminder> Reminders => _reminders.AsReadOnly();
@@ -30,6 +41,8 @@ public class User : Entity
         PasswordHash = string.Empty;
         Role = UserRole.User;
         TimeZoneId = "Europe/Moscow"; // Default timezone for Russia (UTC+3)
+        IsOnboardingCompleted = false;
+        OnboardingStep = null;
     }
 
     public User(string name, string email, string passwordHash, UserRole role = UserRole.User, string? timeZoneId = null) : base()
@@ -44,6 +57,8 @@ public class User : Entity
         SetPasswordHash(passwordHash);
         Role = role;
         SetTimeZone(timeZoneId ?? "Europe/Moscow");
+        IsOnboardingCompleted = false;
+        OnboardingStep = null;
     }
 
     public void SetName(string name)
@@ -121,6 +136,60 @@ public class User : Entity
         }
 
         TimeZoneId = timeZoneId;
+        MarkAsUpdated();
+    }
+
+    public void Block(string reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new DomainException("Block reason cannot be empty");
+
+        IsBlocked = true;
+        BlockedReason = reason;
+        BlockedAt = DateTime.UtcNow;
+        MarkAsUpdated();
+    }
+
+    public void Unblock()
+    {
+        IsBlocked = false;
+        BlockedReason = null;
+        BlockedAt = null;
+        MarkAsUpdated();
+    }
+
+    public void UpdateSubscriptionCheck(bool isSubscribed)
+    {
+        LastSubscriptionCheckAt = DateTime.UtcNow;
+
+        if (isSubscribed)
+        {
+            ChannelMembershipVerifiedAt = DateTime.UtcNow;
+            if (IsBlocked)
+            {
+                Unblock();
+            }
+        }
+
+        MarkAsUpdated();
+    }
+
+    public void UpdateOnboarding(bool? isCompleted = null, OnboardingStep? step = null)
+    {
+        if (step.HasValue)
+        {
+            var stepValue = (int)step.Value;
+            if (stepValue < 0 || stepValue > 4)
+                throw new DomainException("Step must be between 0 and 4");
+
+            OnboardingStep = step.Value;
+        }
+
+        if (isCompleted.HasValue)
+        {
+            IsOnboardingCompleted = isCompleted.Value;
+        }
+
         MarkAsUpdated();
     }
 

@@ -253,5 +253,44 @@ public class UsersController : ControllerBase
             expiresInMinutes = 15
         });
     }
-}
 
+    /// <summary>
+    /// Обновить состояние онбординга пользователя
+    /// </summary>
+    [HttpPut("{userId:guid}/onboarding")]
+    public async Task<ActionResult<UserDto>> UpdateOnboarding(Guid userId, [FromBody] UpdateOnboardingDto dto, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Запрос на обновление онбординга для пользователя {UserId}", userId);
+
+        // Проверка: только владелец аккаунта или админ может обновлять онбординг
+        var currentUserIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        var currentUserRoleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role);
+
+        if (currentUserIdClaim == null)
+        {
+            return Unauthorized(new { error = "User not authenticated" });
+        }
+
+        var currentUserId = Guid.Parse(currentUserIdClaim.Value);
+        var currentUserRole = currentUserRoleClaim?.Value;
+
+        if (currentUserId != userId && currentUserRole != "Admin")
+        {
+            _logger.LogWarning("User {CurrentUserId} tried to update onboarding for user {UserId}", currentUserId, userId);
+            return Forbid();
+        }
+
+        var result = await _userService.UpdateOnboardingAsync(userId, dto, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            if (result.Error == "User not found")
+            {
+                return NotFound(new { error = result.Error });
+            }
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Data);
+    }
+}

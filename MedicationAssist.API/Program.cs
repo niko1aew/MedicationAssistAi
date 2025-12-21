@@ -1,5 +1,6 @@
 using System.Text;
 using System.Threading.RateLimiting;
+using MedicationAssist.API.Middleware;
 using MedicationAssist.Application;
 using MedicationAssist.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -178,6 +179,7 @@ try
     app.UseCors("AllowAll");
 
     app.UseAuthentication();
+    app.UseBlockedAccountCheck(); // Проверка блокировки пользователя
     app.UseAuthorization();
 
     app.MapControllers();

@@ -364,6 +364,50 @@ public class UserService : IUserService
         }
     }
 
+    public async Task<Result<UserDto>> UpdateOnboardingAsync(Guid userId, UpdateOnboardingDto dto, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Валидация шага онбординга
+            if (dto.Step.HasValue && (dto.Step.Value < 0 || dto.Step.Value > 4))
+            {
+                _logger.LogWarning("Invalid onboarding step {Step} for user {UserId}", dto.Step.Value, userId);
+                return Result<UserDto>.Failure("Step must be between 0 and 4");
+            }
+
+            var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+            if (user == null)
+            {
+                _logger.LogWarning("User {UserId} not found for onboarding update", userId);
+                return Result<UserDto>.Failure("User not found");
+            }
+
+            // Конвертируем int? в OnboardingStep?
+            Domain.Common.OnboardingStep? step = dto.Step.HasValue
+                ? (Domain.Common.OnboardingStep)dto.Step.Value
+                : null;
+
+            user.UpdateOnboarding(dto.IsCompleted, step);
+
+            await _unitOfWork.Users.UpdateAsync(user, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Updated onboarding for user {UserId}: IsCompleted={IsCompleted}, Step={Step}",
+                userId, dto.IsCompleted, dto.Step);
+            return Result<UserDto>.Success(MapToDto(user));
+        }
+        catch (DomainException ex)
+        {
+            _logger.LogWarning(ex, "Validation error while updating onboarding for user {UserId}", userId);
+            return Result<UserDto>.Failure(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while updating onboarding for user {UserId}", userId);
+            return Result<UserDto>.Failure($"Error while updating onboarding: {ex.Message}");
+        }
+    }
+
     private static UserDto MapToDto(User user)
     {
         return new UserDto(
@@ -374,9 +418,10 @@ public class UserService : IUserService
             user.TelegramUserId,
             user.TelegramUsername,
             user.TimeZoneId,
+            user.IsOnboardingCompleted,
+            user.OnboardingStep,
             user.CreatedAt,
             user.UpdatedAt
         );
     }
 }
-

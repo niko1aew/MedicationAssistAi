@@ -83,7 +83,7 @@ public class AuthService : IAuthService
                 Token = tokens.AccessToken,
                 RefreshToken = tokens.RefreshToken,
                 TokenExpires = tokens.AccessTokenExpires,
-                User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.TimeZoneId, user.CreatedAt, user.UpdatedAt)
+                User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.TimeZoneId, user.IsOnboardingCompleted, user.OnboardingStep, user.CreatedAt, user.UpdatedAt)
             };
 
             return Result<AuthResponseDto>.Success(response);
@@ -113,6 +113,14 @@ public class AuthService : IAuthService
             return Result<AuthResponseDto>.Failure("Invalid email or password");
         }
 
+        // Проверка блокировки аккаунта
+        if (user.IsBlocked)
+        {
+            var reason = user.BlockedReason ?? "Аккаунт заблокирован. Пожалуйста, свяжитесь с поддержкой.";
+            _logger.LogWarning("Blocked user {UserId} attempted to login", user.Id);
+            return Result<AuthResponseDto>.Failure(reason);
+        }
+
         // Генерация токенов
         var tokens = _jwtTokenService.GenerateTokens(user);
 
@@ -129,7 +137,7 @@ public class AuthService : IAuthService
             Token = tokens.AccessToken,
             RefreshToken = tokens.RefreshToken,
             TokenExpires = tokens.AccessTokenExpires,
-            User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.TimeZoneId, user.CreatedAt, user.UpdatedAt)
+            User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.TimeZoneId, user.IsOnboardingCompleted, user.OnboardingStep, user.CreatedAt, user.UpdatedAt)
         };
 
         return Result<AuthResponseDto>.Success(response);
@@ -166,6 +174,18 @@ public class AuthService : IAuthService
             return Result<AuthResponseDto>.Failure("User not found");
         }
 
+        // Проверка блокировки аккаунта
+        if (user.IsBlocked)
+        {
+            var reason = user.BlockedReason ?? "Аккаунт заблокирован. Пожалуйста, свяжитесь с поддержкой.";
+            _logger.LogWarning("Blocked user {UserId} attempted to refresh token", user.Id);
+
+            // Отзываем токен заблокированного пользователя
+            await _refreshTokenService.RevokeTokenAsync(refreshToken);
+
+            return Result<AuthResponseDto>.Failure(reason);
+        }
+
         // Генерируем новые токены
         var tokens = _jwtTokenService.GenerateTokens(user);
 
@@ -183,7 +203,7 @@ public class AuthService : IAuthService
             Token = tokens.AccessToken,
             RefreshToken = tokens.RefreshToken,
             TokenExpires = tokens.AccessTokenExpires,
-            User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.TimeZoneId, user.CreatedAt, user.UpdatedAt)
+            User = new UserDto(user.Id, user.Name, user.Email, user.Role, user.TelegramUserId, user.TelegramUsername, user.TimeZoneId, user.IsOnboardingCompleted, user.OnboardingStep, user.CreatedAt, user.UpdatedAt)
         };
 
         return Result<AuthResponseDto>.Success(response);

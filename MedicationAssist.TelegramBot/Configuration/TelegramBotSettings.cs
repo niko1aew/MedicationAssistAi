@@ -47,5 +47,21 @@ public class TelegramBotSettings
     /// Переменная окружения: WEBSITE_URL
     /// </remarks>
     public string WebsiteUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Username обязательного канала для подписки (без @)
+    /// </summary>
+    /// <remarks>
+    /// Переменная окружения: CHANNEL_USERNAME
+    /// </remarks>
+    public string RequiredChannelUsername { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Полный URL обязательного канала для отображения пользователям
+    /// </summary>
+    /// <remarks>
+    /// Переменная окружения: CHANNEL_URL
+    /// </remarks>
+    public string RequiredChannelUrl { get; set; } = string.Empty;
 }
 

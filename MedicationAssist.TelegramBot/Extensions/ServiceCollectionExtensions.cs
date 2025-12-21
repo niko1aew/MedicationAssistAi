@@ -41,6 +41,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<UserSessionService>();
         services.AddSingleton<PendingReminderTracker>();
         services.AddSingleton<ReminderService>();
+        services.AddScoped<ChannelSubscriptionService>();
 
         // Регистрация обработчиков
         services.AddScoped<CommandHandler>();
@@ -54,6 +55,7 @@ public static class ServiceCollectionExtensions
         // Регистрация основного сервиса бота
         services.AddHostedService<TelegramBotService>();
         services.AddHostedService(sp => sp.GetRequiredService<ReminderService>());
+        services.AddHostedService<SubscriptionCheckService>();
 
         return services;
     }

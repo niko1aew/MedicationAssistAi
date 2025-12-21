@@ -221,6 +221,8 @@ public class AuthController : ControllerBase
                 user.TelegramUserId,
                 user.TelegramUsername,
                 user.TimeZoneId,
+                user.IsOnboardingCompleted,
+                user.OnboardingStep,
                 user.CreatedAt,
                 user.UpdatedAt)
         };
@@ -326,6 +328,8 @@ public class AuthController : ControllerBase
                 user.TelegramUserId,
                 user.TelegramUsername,
                 user.TimeZoneId,
+                user.IsOnboardingCompleted,
+                user.OnboardingStep,
                 user.CreatedAt,
                 user.UpdatedAt)
         };

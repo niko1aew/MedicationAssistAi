@@ -1,8 +1,15 @@
+using MedicationAssist.Domain.Repositories;
+using MedicationAssist.TelegramBot.Configuration;
 using MedicationAssist.TelegramBot.Handlers;
+using MedicationAssist.TelegramBot.Keyboards;
+using MedicationAssist.TelegramBot.Resources;
+using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
+using MedicationAssist.Application.Services;
 
 namespace MedicationAssist.TelegramBot.Services;
 
@@ -38,7 +45,8 @@ public class TelegramBotService : BackgroundService
             AllowedUpdates = new[]
             {
                 UpdateType.Message,
-                UpdateType.CallbackQuery
+                UpdateType.CallbackQuery,
+                UpdateType.ChatMember
             },
             DropPendingUpdates = true
         };
@@ -72,15 +80,19 @@ public class TelegramBotService : BackgroundService
         try
         {
             using var scope = _scopeFactory.CreateScope();
-            
+
             switch (update.Type)
             {
                 case UpdateType.Message:
                     await HandleMessageAsync(scope.ServiceProvider, update.Message!, ct);
                     break;
-                    
+
                 case UpdateType.CallbackQuery:
                     await HandleCallbackQueryAsync(scope.ServiceProvider, update.CallbackQuery!, ct);
+                    break;
+
+                case UpdateType.ChatMember:
+                    await HandleChatMemberAsync(scope.ServiceProvider, update.ChatMember!, ct);
                     break;
             }
         }
@@ -138,6 +150,99 @@ public class TelegramBotService : BackgroundService
 
         var callbackHandler = services.GetRequiredService<CallbackQueryHandler>();
         await callbackHandler.HandleCallbackQueryAsync(callbackQuery, ct);
+    }
+
+    private async Task HandleChatMemberAsync(IServiceProvider services, ChatMemberUpdated chatMemberUpdated, CancellationToken ct)
+    {
+        try
+        {
+            var settings = services.GetRequiredService<IOptions<TelegramBotSettings>>().Value;
+
+            // Проверяем, что это событие из нужного нам канала
+            if (chatMemberUpdated.Chat.Username?.Equals(settings.RequiredChannelUsername, StringComparison.OrdinalIgnoreCase) != true)
+            {
+                _logger.LogDebug("Ignoring ChatMember update from channel @{Channel}", chatMemberUpdated.Chat.Username);
+                return;
+            }
+
+            var userId = chatMemberUpdated.From.Id;
+            var oldStatus = chatMemberUpdated.OldChatMember.Status;
+            var newStatus = chatMemberUpdated.NewChatMember.Status;
+
+            _logger.LogInformation(
+                "User {UserId} changed status in channel @{Channel}: {OldStatus} -> {NewStatus}",
+                userId, settings.RequiredChannelUsername, oldStatus, newStatus);
+
+            // Проверяем, отписался ли пользователь
+            var wasSubscribed = oldStatus is ChatMemberStatus.Member or ChatMemberStatus.Administrator or ChatMemberStatus.Creator;
+            var isSubscribed = newStatus is ChatMemberStatus.Member or ChatMemberStatus.Administrator or ChatMemberStatus.Creator;
+
+            if (wasSubscribed && !isSubscribed)
+            {
+                // Пользователь отписался - блокируем его
+                _logger.LogWarning("User {UserId} unsubscribed from channel, blocking account", userId);
+
+                var userRepository = services.GetRequiredService<IUserRepository>();
+                var refreshTokenService = services.GetRequiredService<IRefreshTokenService>();
+                var unitOfWork = services.GetRequiredService<IUnitOfWork>();
+
+                var user = await userRepository.GetByTelegramIdAsync(userId, ct);
+                if (user != null)
+                {
+                    user.Block($"Требуется подписка на канал {settings.RequiredChannelUrl}");
+                    await unitOfWork.SaveChangesAsync(ct);
+
+                    // Отзываем все refresh токены
+                    await refreshTokenService.RevokeAllUserTokensAsync(user.Id);
+
+                    // Отправляем уведомление пользователю
+                    try
+                    {
+                        var channelSubscriptionService = services.GetRequiredService<ChannelSubscriptionService>();
+                        var keyboard = new InlineKeyboardMarkup(new[]
+                        {
+                            new[]
+                            {
+                                InlineKeyboardButton.WithUrl("📢 Перейти на канал", channelSubscriptionService.GetChannelUrl())
+                            },
+                            new[]
+                            {
+                                InlineKeyboardButton.WithCallbackData("✅ Я подписался", "recheck_subscription")
+                            }
+                        });
+
+                        await _botClient.SendMessage(
+                            chatId: userId,
+                            text: Messages.SubscriptionLostWarning,
+                            replyMarkup: keyboard,
+                            cancellationToken: ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send unsubscribe notification to user {UserId}", userId);
+                    }
+                }
+            }
+            else if (!wasSubscribed && isSubscribed)
+            {
+                // Пользователь подписался - обновляем статус
+                _logger.LogInformation("User {UserId} subscribed to channel", userId);
+
+                var userRepository = services.GetRequiredService<IUserRepository>();
+                var unitOfWork = services.GetRequiredService<IUnitOfWork>();
+
+                var user = await userRepository.GetByTelegramIdAsync(userId, ct);
+                if (user != null)
+                {
+                    user.UpdateSubscriptionCheck(isSubscribed: true);
+                    await unitOfWork.SaveChangesAsync(ct);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling ChatMember update");
+        }
     }
 
     private Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken ct)

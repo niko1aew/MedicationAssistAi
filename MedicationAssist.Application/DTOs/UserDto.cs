@@ -1,3 +1,4 @@
+using MedicationAssist.Domain.Common;
 using MedicationAssist.Domain.Entities;
 
 namespace MedicationAssist.Application.DTOs;
@@ -10,6 +11,8 @@ public record UserDto(
     long? TelegramUserId,
     string? TelegramUsername,
     string TimeZoneId,
+    bool IsOnboardingCompleted,
+    OnboardingStep? OnboardingStep,
     DateTime CreatedAt,
     DateTime? UpdatedAt
 );
@@ -29,3 +32,7 @@ public record LinkTelegramDto(
     string? TelegramUsername
 );
 
+public record UpdateOnboardingDto(
+    bool? IsCompleted,
+    int? Step
+);

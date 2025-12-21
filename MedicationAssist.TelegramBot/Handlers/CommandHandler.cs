@@ -1,4 +1,5 @@
 using MedicationAssist.Application.Services;
+using MedicationAssist.Domain.Repositories;
 using MedicationAssist.TelegramBot.Keyboards;
 using MedicationAssist.TelegramBot.Resources;
 using MedicationAssist.TelegramBot.Services;
@@ -20,6 +21,7 @@ public class CommandHandler
     private readonly ReminderHandler _reminderHandler;
     private readonly SettingsHandler _settingsHandler;
     private readonly IUserService _userService;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger<CommandHandler> _logger;
 
     public CommandHandler(
@@ -31,6 +33,7 @@ public class CommandHandler
         ReminderHandler reminderHandler,
         SettingsHandler settingsHandler,
         IUserService userService,
+        IUserRepository userRepository,
         ILogger<CommandHandler> logger)
     {
         _botClient = botClient;
@@ -41,6 +44,7 @@ public class CommandHandler
         _reminderHandler = reminderHandler;
         _settingsHandler = settingsHandler;
         _userService = userService;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -65,6 +69,21 @@ public class CommandHandler
 
         _logger.LogInformation("Received command {Command} from user {UserId}. Full text: {Text}. Parts count: {Count}",
             command, userId, message.Text, messageParts.Length);
+
+        // Проверяем блокировку пользователя (кроме /start)
+        if (command != "/start")
+        {
+            var user = await _userRepository.GetByTelegramIdAsync(userId, ct);
+            if (user?.IsBlocked == true)
+            {
+                _logger.LogWarning("Blocked user {UserId} tried to execute command {Command}", userId, command);
+                await _botClient.SendMessage(
+                    chatId,
+                    Messages.AccountBlocked.Replace("{reason}", user.BlockedReason ?? "Unknown"),
+                    cancellationToken: ct);
+                return;
+            }
+        }
 
         var session = _sessionService.GetOrCreateSession(userId);
 

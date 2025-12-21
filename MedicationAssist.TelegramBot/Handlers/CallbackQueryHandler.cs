@@ -1,4 +1,6 @@
 using MedicationAssist.Application.Services;
+using MedicationAssist.Domain.Common;
+using MedicationAssist.Domain.Repositories;
 using MedicationAssist.TelegramBot.Configuration;
 using MedicationAssist.TelegramBot.Keyboards;
 using MedicationAssist.TelegramBot.Resources;
@@ -23,6 +25,9 @@ public class CallbackQueryHandler
     private readonly SettingsHandler _settingsHandler;
     private readonly IWebLoginTokenService _webLoginTokenService;
     private readonly IUserService _userService;
+    private readonly IUserRepository _userRepository;
+    private readonly ChannelSubscriptionService _channelSubscriptionService;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly TelegramBotSettings _settings;
     private readonly ILogger<CallbackQueryHandler> _logger;
 
@@ -36,6 +41,9 @@ public class CallbackQueryHandler
         SettingsHandler settingsHandler,
         IWebLoginTokenService webLoginTokenService,
         IUserService userService,
+        IUserRepository userRepository,
+        ChannelSubscriptionService channelSubscriptionService,
+        IUnitOfWork unitOfWork,
         IOptions<TelegramBotSettings> settings,
         ILogger<CallbackQueryHandler> logger)
     {
@@ -48,6 +56,9 @@ public class CallbackQueryHandler
         _settingsHandler = settingsHandler;
         _webLoginTokenService = webLoginTokenService;
         _userService = userService;
+        _userRepository = userRepository;
+        _channelSubscriptionService = channelSubscriptionService;
+        _unitOfWork = unitOfWork;
         _settings = settings.Value;
         _logger = logger;
     }
@@ -72,6 +83,21 @@ public class CallbackQueryHandler
         // Парсим callback data (может быть в формате "action" или "action:param")
         var parts = data.Split(':');
         var action = parts[0];
+
+        // Проверяем блокировку пользователя (кроме quick_start и recheck_subscription)
+        if (action != "quick_start" && action != "recheck_subscription")
+        {
+            var user = await _userRepository.GetByTelegramIdAsync(userId, ct);
+            if (user?.IsBlocked == true)
+            {
+                _logger.LogWarning("Blocked user {UserId} tried to execute callback {Action}", userId, action);
+                await _botClient.SendMessage(
+                    chatId,
+                    Messages.AccountBlocked.Replace("{reason}", user.BlockedReason ?? "Unknown"),
+                    cancellationToken: ct);
+                return;
+            }
+        }
         var param = parts.Length > 1 ? parts[1] : null;
 
         try
@@ -90,6 +116,10 @@ public class CallbackQueryHandler
                 // Аутентификация
                 case "quick_start":
                     await _authHandler.QuickStartAsync(chatId, callbackQuery.From, callbackQuery.Message.MessageId, ct);
+                    break;
+
+                case "recheck_subscription":
+                    await HandleRecheckSubscriptionAsync(chatId, userId, callbackQuery.Message.MessageId, callbackQuery.From, ct);
                     break;
 
                 case "logout":
@@ -474,6 +504,73 @@ public class CallbackQueryHandler
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Обработать повторную проверку подписки на канал
+    /// </summary>
+    private async Task HandleRecheckSubscriptionAsync(long chatId, long userId, int messageId, User telegramUser, CancellationToken ct)
+    {
+        try
+        {
+            // Проверяем подписку
+            var isSubscribed = await _channelSubscriptionService.CheckSubscriptionAsync(userId, ct);
+
+            if (!isSubscribed)
+            {
+                _logger.LogInformation("Subscription check failed for Telegram user {TelegramUserId}, still not subscribed", userId);
+
+                var message = Messages.SubscriptionCheckFailed
+                    .Replace("{channelUrl}", _settings.RequiredChannelUrl ?? "")
+                    .Replace("{channelName}", _settings.RequiredChannelUsername ?? "");
+
+                await _botClient.EditMessageText(
+                    chatId,
+                    messageId,
+                    message,
+                    replyMarkup: SubscriptionKeyboard.GetKeyboard(_settings.RequiredChannelUrl ?? ""),
+                    cancellationToken: ct);
+                return;
+            }
+
+            // Пользователь подписан - проверяем, есть ли он в базе
+            var user = await _userRepository.GetByTelegramIdAsync(userId, ct);
+
+            if (user == null)
+            {
+                // Пользователь не найден - запускаем регистрацию (он ещё не был создан)
+                _logger.LogInformation("User with Telegram ID {TelegramId} not found, starting registration after subscription confirmed", userId);
+                await _authHandler.QuickStartAsync(chatId, telegramUser, messageId, ct);
+                return;
+            }
+
+            // Пользователь найден и был заблокирован - разблокируем
+            if (user.IsBlocked)
+            {
+                user.Unblock();
+                await _userRepository.UpdateAsync(user, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+                _logger.LogInformation("User {UserId} subscription verified, account unblocked", user.Id);
+            }
+
+            // Авторизуем в сессии
+            _sessionService.Authenticate(userId, user.Id, user.Name);
+
+            await _botClient.EditMessageText(
+                chatId,
+                messageId,
+                Messages.SubscriptionCheckSuccess,
+                replyMarkup: InlineKeyboards.MainMenu,
+                cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while rechecking subscription for user {UserId}", userId);
+            await _botClient.SendMessage(
+                chatId,
+                Messages.ErrorOccurred,
+                cancellationToken: ct);
+        }
     }
 
     /// <summary>

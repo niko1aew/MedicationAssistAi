@@ -1,5 +1,6 @@
 using MedicationAssist.Application.DTOs;
 using MedicationAssist.Application.Services;
+using MedicationAssist.Domain.Repositories;
 using MedicationAssist.TelegramBot.Configuration;
 using MedicationAssist.TelegramBot.Keyboards;
 using MedicationAssist.TelegramBot.Resources;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace MedicationAssist.TelegramBot.Handlers;
 
@@ -26,6 +28,9 @@ public class AuthHandler
     private readonly IWebLoginTokenService _webLoginTokenService;
     private readonly ITelegramLoginService _telegramLoginService;
     private readonly IMemoryCache _memoryCache;
+    private readonly ChannelSubscriptionService _channelSubscriptionService;
+    private readonly IUserRepository _userRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
     private const string RATE_LIMIT_PREFIX = "weblogin_reg_limit_";
     private const int MAX_REGISTRATION_ATTEMPTS = 3;
@@ -40,6 +45,9 @@ public class AuthHandler
         IWebLoginTokenService webLoginTokenService,
         ITelegramLoginService telegramLoginService,
         IMemoryCache memoryCache,
+        ChannelSubscriptionService channelSubscriptionService,
+        IUserRepository userRepository,
+        IUnitOfWork unitOfWork,
         IOptions<TelegramBotSettings> settings,
         ILogger<AuthHandler> logger)
     {
@@ -51,6 +59,9 @@ public class AuthHandler
         _webLoginTokenService = webLoginTokenService;
         _telegramLoginService = telegramLoginService;
         _memoryCache = memoryCache;
+        _channelSubscriptionService = channelSubscriptionService;
+        _userRepository = userRepository;
+        _unitOfWork = unitOfWork;
         _settings = settings.Value;
         _logger = logger;
     }
@@ -241,7 +252,42 @@ public class AuthHandler
                 return;
             }
 
-            // Пользователь не существует - регистрируем нового
+            // Пользователь не существует - сначала проверяем подписку на канал
+            var isSubscribed = await _channelSubscriptionService.CheckSubscriptionAsync(telegramUser.Id, ct);
+
+            if (!isSubscribed)
+            {
+                // Пользователь не подписан или проверка невозможна - не создаём аккаунт
+                var subscriptionKeyboard = SubscriptionKeyboard.GetKeyboard(_channelSubscriptionService.GetChannelUrl());
+
+                var message = Messages.ChannelSubscriptionRequired;
+
+                if (messageId.HasValue)
+                {
+                    await _botClient.EditMessageText(
+                        chatId,
+                        messageId.Value,
+                        message,
+                        replyMarkup: subscriptionKeyboard,
+                        cancellationToken: ct);
+                }
+                else
+                {
+                    await _botClient.SendMessage(
+                        chatId,
+                        message,
+                        replyMarkup: subscriptionKeyboard,
+                        cancellationToken: ct);
+                }
+
+                _logger.LogInformation(
+                    "Registration blocked for Telegram user {TelegramUserId} due to missing channel subscription or configuration error",
+                    telegramUser.Id);
+
+                return;
+            }
+
+            // Регистрируем нового пользователя
             var password = Guid.NewGuid().ToString();
             var name = telegramUser.FirstName + (string.IsNullOrEmpty(telegramUser.LastName) ? "" : " " + telegramUser.LastName);
 
@@ -671,7 +717,24 @@ public class AuthHandler
                     return;
                 }
 
-                // 3. Создаем нового пользователя
+                // 3. Проверка подписки на канал
+                var isSubscribed = await _channelSubscriptionService.CheckSubscriptionAsync(telegramUser.Id, ct);
+                if (!isSubscribed)
+                {
+                    _logger.LogInformation(
+                        "Web login registration blocked for Telegram user {TelegramUserId} due to missing channel subscription",
+                        telegramUser.Id);
+
+                    var subscriptionKeyboard = SubscriptionKeyboard.GetKeyboard(_channelSubscriptionService.GetChannelUrl());
+                    await _botClient.SendMessage(
+                        chatId,
+                        Messages.ChannelSubscriptionRequired,
+                        replyMarkup: subscriptionKeyboard,
+                        cancellationToken: ct);
+                    return;
+                }
+
+                // 4. Создаем нового пользователя
                 var email = $"telegram_{telegramUser.Id}@medicationassist.local";
                 var password = Guid.NewGuid().ToString();
                 var name = telegramUser.FirstName + (string.IsNullOrEmpty(telegramUser.LastName) ? "" : " " + telegramUser.LastName);
@@ -696,7 +759,7 @@ public class AuthHandler
                     return;
                 }
 
-                // 4. Привязываем Telegram аккаунт
+                // 5. Привязываем Telegram аккаунт
                 var linkResult = await _userService.LinkTelegramAsync(
                     registerResult.Data.User.Id,
                     new LinkTelegramDto(telegramUser.Id, telegramUser.Username),
@@ -712,7 +775,7 @@ public class AuthHandler
                 user = registerResult.Data.User;
                 isNewUser = true;
 
-                // 5. Логирование для безопасности
+                // 6. Логирование для безопасности
                 _logger.LogWarning(
                     "AUTO_REGISTRATION via web login: TelegramId={TelegramUserId}, Username={Username}, FirstName={FirstName}, LastName={LastName}, ChatId={ChatId}, Email={Email}, UserId={UserId}",
                     telegramUser.Id, telegramUser.Username ?? "null", telegramUser.FirstName ?? "null",

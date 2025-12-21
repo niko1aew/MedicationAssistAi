@@ -19,5 +19,7 @@ public interface IUserService
     // Link Token methods
     Task<Result<string>> GenerateLinkTokenAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<Result<UserDto>> LinkTelegramByTokenAsync(string token, LinkTelegramDto dto, CancellationToken cancellationToken = default);
-}
 
+    // Onboarding methods
+    Task<Result<UserDto>> UpdateOnboardingAsync(Guid userId, UpdateOnboardingDto dto, CancellationToken cancellationToken = default);
+}
