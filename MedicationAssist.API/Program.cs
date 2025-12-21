@@ -29,6 +29,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add environment variables with custom mapping
 builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
 {
+    ["TelegramBot:Token"] = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN"),
     ["TelegramBot:BotUsername"] = Environment.GetEnvironmentVariable("TELEGRAM_BOT_USERNAME"),
     ["TelegramBot:WebsiteUrl"] = Environment.GetEnvironmentVariable("TELEGRAM_WEBSITE_URL"),
 }.Where(kv => !string.IsNullOrEmpty(kv.Value)).ToDictionary(kv => kv.Key, kv => kv.Value));

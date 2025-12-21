@@ -324,7 +324,7 @@ public class CallbackQueryHandler
                 chatId,
                 messageId,
                 Messages.MainMenu,
-                replyMarkup: InlineKeyboards.MainMenu,
+                replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                 cancellationToken: ct);
         }
         else
@@ -560,7 +560,7 @@ public class CallbackQueryHandler
                 chatId,
                 messageId,
                 Messages.SubscriptionCheckSuccess,
-                replyMarkup: InlineKeyboards.MainMenu,
+                replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                 cancellationToken: ct);
         }
         catch (Exception ex)

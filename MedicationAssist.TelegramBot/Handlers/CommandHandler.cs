@@ -1,8 +1,10 @@
 using MedicationAssist.Application.Services;
 using MedicationAssist.Domain.Repositories;
+using MedicationAssist.TelegramBot.Configuration;
 using MedicationAssist.TelegramBot.Keyboards;
 using MedicationAssist.TelegramBot.Resources;
 using MedicationAssist.TelegramBot.Services;
+using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
@@ -22,6 +24,7 @@ public class CommandHandler
     private readonly SettingsHandler _settingsHandler;
     private readonly IUserService _userService;
     private readonly IUserRepository _userRepository;
+    private readonly TelegramBotSettings _settings;
     private readonly ILogger<CommandHandler> _logger;
 
     public CommandHandler(
@@ -34,6 +37,7 @@ public class CommandHandler
         SettingsHandler settingsHandler,
         IUserService userService,
         IUserRepository userRepository,
+        IOptions<TelegramBotSettings> settings,
         ILogger<CommandHandler> logger)
     {
         _botClient = botClient;
@@ -45,6 +49,7 @@ public class CommandHandler
         _settingsHandler = settingsHandler;
         _userService = userService;
         _userRepository = userRepository;
+        _settings = settings.Value;
         _logger = logger;
     }
 
@@ -265,7 +270,7 @@ public class CommandHandler
             await _botClient.SendMessage(
                 chatId,
                 string.Format(Messages.WelcomeBack, session.UserName),
-                replyMarkup: InlineKeyboards.MainMenu,
+                replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                 cancellationToken: ct);
         }
         else
@@ -296,7 +301,7 @@ public class CommandHandler
             await _botClient.SendMessage(
                 chatId,
                 Messages.MainMenu,
-                replyMarkup: InlineKeyboards.MainMenu,
+                replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                 cancellationToken: ct);
         }
         else

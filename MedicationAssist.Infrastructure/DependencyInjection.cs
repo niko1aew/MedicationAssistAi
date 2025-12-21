@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<ILinkTokenService, LinkTokenService>();
         services.AddScoped<IWebLoginTokenService, WebLoginTokenService>();
         services.AddScoped<ITelegramLoginService, TelegramLoginService>();
+        services.AddScoped<ITelegramWebAppService, TelegramWebAppService>();
 
         // Конфигурация JWT
         services.Configure<JwtSettings>(options =>

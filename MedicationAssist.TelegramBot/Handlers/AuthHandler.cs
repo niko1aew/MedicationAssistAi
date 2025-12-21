@@ -186,7 +186,7 @@ public class AuthHandler
                         chatId,
                         messageId.Value,
                         string.Format(Messages.WelcomeBack, existingUserByTelegramId.Data.Name),
-                        replyMarkup: InlineKeyboards.MainMenu,
+                        replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                         cancellationToken: ct);
                 }
                 else
@@ -194,7 +194,7 @@ public class AuthHandler
                     await _botClient.SendMessage(
                         chatId,
                         string.Format(Messages.WelcomeBack, existingUserByTelegramId.Data.Name),
-                        replyMarkup: InlineKeyboards.MainMenu,
+                        replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                         cancellationToken: ct);
                 }
 
@@ -234,7 +234,7 @@ public class AuthHandler
                         chatId,
                         messageId.Value,
                         string.Format(Messages.WelcomeBack, existingUser.Data.Name),
-                        replyMarkup: InlineKeyboards.MainMenu,
+                        replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                         cancellationToken: ct);
                 }
                 else
@@ -242,7 +242,7 @@ public class AuthHandler
                     await _botClient.SendMessage(
                         chatId,
                         string.Format(Messages.WelcomeBack, existingUser.Data.Name),
-                        replyMarkup: InlineKeyboards.MainMenu,
+                        replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                         cancellationToken: ct);
                 }
 
@@ -319,8 +319,7 @@ public class AuthHandler
                 var credentialsMessage = $"{Messages.QuickStartSuccess}\n\n" +
                                        $"🌐 <b>Ссылка на сайт:</b> {_settings.WebsiteUrl}\n" +
                                        $"👤 <b>Логин (Email):</b> <code>{email}</code>\n" +
-                                       $"🔑 <b>Пароль:</b> <code>{password}</code>\n\n" +
-                                       $"💡 <i>Сохраните эти данные для входа на сайт!</i>";
+                                       $"🔑 <b>Пароль:</b> <code>{password}</code>";
 
                 if (messageId.HasValue)
                 {
@@ -329,7 +328,7 @@ public class AuthHandler
                         messageId.Value,
                         credentialsMessage,
                         parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
-                        replyMarkup: InlineKeyboards.MainMenu,
+                        replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                         cancellationToken: ct);
                 }
                 else
@@ -338,7 +337,7 @@ public class AuthHandler
                         chatId,
                         credentialsMessage,
                         parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
-                        replyMarkup: InlineKeyboards.MainMenu,
+                        replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                         cancellationToken: ct);
                 }
 
@@ -438,7 +437,7 @@ public class AuthHandler
             await _botClient.SendMessage(
                 chatId,
                 string.Format(Messages.LoginSuccess, result.Data.User.Name),
-                replyMarkup: InlineKeyboards.MainMenu,
+                replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                 cancellationToken: ct);
 
             _logger.LogInformation(
@@ -555,7 +554,7 @@ public class AuthHandler
             await _botClient.SendMessage(
                 chatId,
                 string.Format(Messages.RegisterSuccess, result.Data.User.Name),
-                replyMarkup: InlineKeyboards.MainMenu,
+                replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                 cancellationToken: ct);
 
             _logger.LogInformation(
@@ -631,7 +630,7 @@ public class AuthHandler
                     $"📧 Email: <code>{result.Data.Email}</code>\n\n" +
                     $"Теперь вы можете управлять приемом лекарств через бота!",
                     parseMode: Telegram.Bot.Types.Enums.ParseMode.Html,
-                    replyMarkup: InlineKeyboards.MainMenu,
+                    replyMarkup: InlineKeyboards.GetMainMenu(_settings.WebsiteUrl),
                     cancellationToken: ct);
 
                 _logger.LogInformation(

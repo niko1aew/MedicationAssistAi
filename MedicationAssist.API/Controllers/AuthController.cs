@@ -17,6 +17,7 @@ public class AuthController : ControllerBase
     private readonly IAuthService _authService;
     private readonly IWebLoginTokenService _webLoginTokenService;
     private readonly ITelegramLoginService _telegramLoginService;
+    private readonly ITelegramWebAppService _telegramWebAppService;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly IUserRepository _userRepository;
@@ -27,6 +28,7 @@ public class AuthController : ControllerBase
         IAuthService authService,
         IWebLoginTokenService webLoginTokenService,
         ITelegramLoginService telegramLoginService,
+        ITelegramWebAppService telegramWebAppService,
         IJwtTokenService jwtTokenService,
         IRefreshTokenService refreshTokenService,
         IUserRepository userRepository,
@@ -36,6 +38,7 @@ public class AuthController : ControllerBase
         _authService = authService;
         _webLoginTokenService = webLoginTokenService;
         _telegramLoginService = telegramLoginService;
+        _telegramWebAppService = telegramWebAppService;
         _jwtTokenService = jwtTokenService;
         _refreshTokenService = refreshTokenService;
         _userRepository = userRepository;
@@ -335,6 +338,73 @@ public class AuthController : ControllerBase
         };
 
         _logger.LogInformation("Успешный вход через Telegram для пользователя {UserId}", user.Id);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Авторизация через Telegram Mini App (Web App)
+    /// Используется для бесшовного входа из Telegram Mini App
+    /// </summary>
+    /// <param name="request">InitData от Telegram Web App</param>
+    /// <returns>JWT токен и информация о пользователе</returns>
+    [HttpPost("telegram-webapp")]
+    [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> TelegramWebAppAuth([FromBody] TelegramWebAppAuthRequest request)
+    {
+        _logger.LogInformation("Попытка авторизации через Telegram Mini App");
+
+        // Валидируем initData
+        var validationResult = _telegramWebAppService.ValidateInitData(request.InitData);
+
+        if (!validationResult.IsValid)
+        {
+            _logger.LogWarning("Ошибка валидации initData: {Error}", validationResult.Error);
+            return Unauthorized(new { error = validationResult.Error });
+        }
+
+        var telegramUser = validationResult.User!;
+        _logger.LogInformation("InitData валиден для Telegram пользователя {TelegramId}", telegramUser.Id);
+
+        // Ищем пользователя по Telegram ID
+        var user = await _userRepository.GetByTelegramIdAsync(telegramUser.Id);
+
+        if (user == null)
+        {
+            _logger.LogWarning("Пользователь с Telegram ID {TelegramId} не найден", telegramUser.Id);
+            return Unauthorized(new { error = "Пользователь не привязан к Telegram. Сначала зарегистрируйтесь через бота." });
+        }
+
+        // Генерируем JWT токены
+        var tokens = _jwtTokenService.GenerateTokens(user);
+
+        // Сохраняем refresh токен
+        await _refreshTokenService.CreateTokenAsync(
+            user.Id,
+            tokens.RefreshToken,
+            tokens.RefreshTokenExpires);
+
+        var response = new AuthResponseDto
+        {
+            Token = tokens.AccessToken,
+            RefreshToken = tokens.RefreshToken,
+            TokenExpires = tokens.AccessTokenExpires,
+            User = new UserDto(
+                user.Id,
+                user.Name,
+                user.Email,
+                user.Role,
+                user.TelegramUserId,
+                user.TelegramUsername,
+                user.TimeZoneId,
+                user.IsOnboardingCompleted,
+                user.OnboardingStep,
+                user.CreatedAt,
+                user.UpdatedAt)
+        };
+
+        _logger.LogInformation("Успешная авторизация через Telegram Mini App для пользователя {UserId}", user.Id);
         return Ok(response);
     }
 }

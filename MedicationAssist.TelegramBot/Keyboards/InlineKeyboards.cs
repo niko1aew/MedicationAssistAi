@@ -1,4 +1,5 @@
 using MedicationAssist.Application.DTOs;
+using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 
 namespace MedicationAssist.TelegramBot.Keyboards;
@@ -9,15 +10,29 @@ namespace MedicationAssist.TelegramBot.Keyboards;
 public static class InlineKeyboards
 {
     /// <summary>
-    /// Главное меню для авторизованного пользователя
+    /// Главное меню для авторизованного пользователя (с WebApp кнопкой)
     /// </summary>
-    public static InlineKeyboardMarkup MainMenu => new(new[]
+    /// <param name="websiteUrl">URL веб-приложения для Mini App</param>
+    public static InlineKeyboardMarkup GetMainMenu(string websiteUrl) => new(new[]
     {
+        new[] { InlineKeyboardButton.WithWebApp("🌐 Web-приложение", new WebAppInfo { Url = websiteUrl }) },
         new[] { InlineKeyboardButton.WithCallbackData("💊 Мои лекарства", "medications") },
         new[] { InlineKeyboardButton.WithCallbackData("✅ Записать приём", "intake") },
         new[] { InlineKeyboardButton.WithCallbackData("📜 История приёмов", "history") },
         new[] { InlineKeyboardButton.WithCallbackData("⏰ Напоминания", "reminders") },
-        new[] { InlineKeyboardButton.WithCallbackData("🌐 Открыть в браузере", "open_website") },
+        new[] { InlineKeyboardButton.WithCallbackData("⚙️ Настройки", "settings") },
+    });
+
+    /// <summary>
+    /// Главное меню без WebApp кнопки (для совместимости)
+    /// </summary>
+    public static InlineKeyboardMarkup MainMenu => new(new[]
+    {
+        new[] { InlineKeyboardButton.WithCallbackData("🌐 Web-приложение", "open_website") },
+        new[] { InlineKeyboardButton.WithCallbackData("💊 Мои лекарства", "medications") },
+        new[] { InlineKeyboardButton.WithCallbackData("✅ Записать приём", "intake") },
+        new[] { InlineKeyboardButton.WithCallbackData("📜 История приёмов", "history") },
+        new[] { InlineKeyboardButton.WithCallbackData("⏰ Напоминания", "reminders") },
         new[] { InlineKeyboardButton.WithCallbackData("⚙️ Настройки", "settings") },
     });
 
