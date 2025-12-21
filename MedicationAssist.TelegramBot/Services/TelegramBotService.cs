@@ -35,10 +35,38 @@ public class TelegramBotService : BackgroundService
         _logger = logger;
     }
 
+    private async Task SetupBotCommandsAsync(CancellationToken ct)
+    {
+        try
+        {
+            var commands = new[]
+            {
+                new BotCommand { Command = "start", Description = "Начать работу с ботом" },
+                new BotCommand { Command = "menu", Description = "Главное меню" },
+                new BotCommand { Command = "medications", Description = "Список лекарств" },
+                new BotCommand { Command = "add", Description = "Добавить лекарство" },
+                new BotCommand { Command = "intake", Description = "Записать приём" },
+                new BotCommand { Command = "history", Description = "История приёмов" },
+                new BotCommand { Command = "reminders", Description = "Управление напоминаниями" },
+                new BotCommand { Command = "help", Description = "Показать справку" }
+            };
+
+            await _botClient.SetMyCommands(commands, cancellationToken: ct);
+            _logger.LogInformation("Bot commands menu configured successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to set bot commands menu");
+        }
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var me = await _botClient.GetMe(stoppingToken);
         _logger.LogInformation("Bot @{BotUsername} (ID: {BotId}) started", me.Username, me.Id);
+
+        // Настройка меню команд
+        await SetupBotCommandsAsync(stoppingToken);
 
         var receiverOptions = new ReceiverOptions
         {
