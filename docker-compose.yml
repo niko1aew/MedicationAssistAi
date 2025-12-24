@@ -33,6 +33,7 @@ services:
       - JwtSettings__ExpirationInMinutes=${JWT_EXPIRATION_MINUTES}
       - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
       - TELEGRAM_WEBSITE_URL=${TELEGRAM_WEBSITE_URL}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     ports:
       - "${API_PORT}:${ASPNETCORE_HTTP_PORTS}"
     depends_on:
