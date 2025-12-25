@@ -172,7 +172,37 @@ public class MedicationIntakeService : IMedicationIntakeService
                 return Result<MedicationIntakeDto>.Failure("Medication intake record not found");
             }
 
-            intake.SetIntakeTime(dto.IntakeTime);
+            // Get user to determine their timezone for proper DateTime conversion
+            var user = await _unitOfWork.Users.GetByIdAsync(intake.UserId, cancellationToken);
+            
+            // Convert IntakeTime to UTC if needed
+            DateTime intakeTime;
+            if (dto.IntakeTime.Kind == DateTimeKind.Utc)
+            {
+                intakeTime = dto.IntakeTime;
+            }
+            else
+            {
+                try
+                {
+                    var userTimeZone = user != null 
+                        ? TimeZoneInfo.FindSystemTimeZoneById(user.TimeZoneId) 
+                        : TimeZoneInfo.Utc;
+                    // For correct conversion, ensure DateTime has Kind = Unspecified
+                    var unspecifiedTime = DateTime.SpecifyKind(dto.IntakeTime, DateTimeKind.Unspecified);
+                    intakeTime = TimeZoneInfo.ConvertTimeToUtc(unspecifiedTime, userTimeZone);
+                }
+                catch (TimeZoneNotFoundException)
+                {
+                    _logger.LogWarning("Invalid timezone {TimeZoneId} for user {UserId}, treating as UTC",
+                        user?.TimeZoneId, intake.UserId);
+                    intakeTime = dto.IntakeTime.Kind == DateTimeKind.Local
+                        ? dto.IntakeTime.ToUniversalTime()
+                        : DateTime.SpecifyKind(dto.IntakeTime, DateTimeKind.Utc);
+                }
+            }
+
+            intake.SetIntakeTime(intakeTime);
             intake.SetNotes(dto.Notes);
 
             await _unitOfWork.MedicationIntakes.UpdateAsync(intake, cancellationToken);
